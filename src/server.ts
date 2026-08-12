@@ -17,6 +17,8 @@ import {
 } from "./variantStore.ts";
 import { adaptSkill } from "./variant.ts";
 import { repoRoot } from "./config.ts";
+import { readManifestSync } from "./manifest.ts";
+import { GitUpstreamUpdateService } from "./updates.ts";
 import { resolveExplain } from "./discovery.ts";
 import { DISCOVERY_PROFILES } from "./discoveryProfiles.ts";
 import { buildHealthActions } from "./health.ts";
@@ -605,6 +607,57 @@ const server = createServer(
 					JSON.stringify({
 						error: err instanceof Error ? err.message : "deploy failed",
 					}),
+				);
+			}
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/update") {
+			// Update preview: needs a pinned upstream source from the manifest
+			// (spec: identity = upstreamUrl + subpath + pinnedRevision, never
+			// HEAD-guessing). No manifest entry -> honest 404 with a path forward.
+			const name = url.searchParams.get("name");
+			if (!name) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing ?name parameter" }));
+				return;
+			}
+			let manifest;
+			try {
+				manifest = readManifestSync(join(repoRoot(), "skillmgr.yaml"));
+			} catch {
+				manifest = null;
+			}
+			const identity = manifest?.skills?.[name]?.identity;
+			if (!identity || !identity.upstreamUrl) {
+				res.writeHead(404, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							"no pinned upstream source for this skill in skillmgr.yaml - add an identity entry to enable updates",
+						name,
+					}),
+				);
+				return;
+			}
+					try {
+					const service = new GitUpstreamUpdateService();
+					const preview = await service.preview({
+						skillId: name,
+					source: {
+						url: identity.upstreamUrl,
+						subpath: identity.subpath || ".",
+						pinnedRevision: identity.pinnedRevision,
+					},
+					targetRevision: identity.pinnedRevision,
+					repoMirrorPath: join(repoRoot(), "skills"),
+				});
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(preview));
+			} catch (err) {
+				res.writeHead(500, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({ error: err instanceof Error ? err.message : "update preview failed" }),
 				);
 			}
 			return;
