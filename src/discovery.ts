@@ -91,12 +91,16 @@ export const LOCATION_KINDS: Record<string, DiscoveryPath["kind"]> = {
 
 /** Resolve ~ in a path against the current home. */
 export function resolveHome(path: string, home: string): string {
-	return path.startsWith("~/") || path === "~" ? path.replace(/^~/, home) : path;
+	return path.startsWith("~/") || path === "~"
+		? path.replace(/^~/, home)
+		: path;
 }
 
 /** True if this discovery path can be matched against a concrete dir. */
 function isMatchable(p: DiscoveryPath): boolean {
-	return !p.path.includes(":") && !p.path.startsWith("--") && !p.path.startsWith("-");
+	return (
+		!p.path.includes(":") && !p.path.startsWith("--") && !p.path.startsWith("-")
+	);
 }
 
 /**

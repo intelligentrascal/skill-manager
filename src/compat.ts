@@ -225,16 +225,19 @@ function suggestionsFor(
 			{
 				action: `Fold the intent into the description for ${profile.name}`,
 				risk: "low",
-				whyMayAlter: "The model still sees the guidance, just not as structured metadata",
+				whyMayAlter:
+					"The model still sees the guidance, just not as structured metadata",
 			},
 		];
 	}
 	if (field === "allowed-tools") {
 		return [
 			{
-				action: "Express the tool restriction in the skill body instead of allowed-tools",
+				action:
+					"Express the tool restriction in the skill body instead of allowed-tools",
 				risk: "high",
-				whyMayAlter: "Allowed-tools is a hard restriction on claude; body text is advisory everywhere",
+				whyMayAlter:
+					"Allowed-tools is a hard restriction on claude; body text is advisory everywhere",
 			},
 		];
 	}
@@ -243,7 +246,8 @@ function suggestionsFor(
 			{
 				action: `Add a ${field} field to the frontmatter`,
 				risk: "low",
-				whyMayAlter: "Discovery and selection depend on it - adding it improves routing everywhere",
+				whyMayAlter:
+					"Discovery and selection depend on it - adding it improves routing everywhere",
 			},
 		];
 	}
@@ -251,7 +255,8 @@ function suggestionsFor(
 		{
 			action: `Drop or adapt '${field}' for ${profile.name}`,
 			risk: "medium",
-			whyMayAlter: "Its intent does not carry over - keeping it has no effect on this agent",
+			whyMayAlter:
+				"Its intent does not carry over - keeping it has no effect on this agent",
 		},
 	];
 }

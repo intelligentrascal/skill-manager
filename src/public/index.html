@@ -1554,85 +1554,85 @@
                 ),
               );
             }
-				section.appendChild(row);
-			}
-			body.appendChild(section);
-		}
-		// Explain: how (and whether) each runtime discovers this skill.
-		// Reason codes are the contract; the prose below is UI-side per the
-		// discovery design (negative cases are the killer feature).
-		const explainSection = el("section", "portability explain");
-		explainSection.appendChild(
-			el("h3", "", "Explain · who sees this skill"),
-		);
-		body.appendChild(explainSection);
-		const explainStatus = el("div", "portability-issue", "Loading...");
-		explainSection.appendChild(explainStatus);
-		fetch("/api/explain?name=" + encodeURIComponent(name))
-			.then((r) => r.json())
-			.then((report) => {
-				explainSection.removeChild(explainStatus);
-				for (const runtime of COMPAT_AGENTS) {
-					const res = report.agents?.[runtime];
-					if (!res) continue;
-					const found = res.reasonCode?.startsWith("found");
-					const row = el("div", "portability-agent");
-					row.appendChild(el("strong", "", runtime));
-					row.appendChild(
-						el(
-							"span",
-							"status " + (found ? "ok" : "warn"),
-							found ? "SEES" : res.reasonCode === "not-found" ? "NOT SEEN" : "UNKNOWN",
-						),
-					);
-					const verdict = el("div", "portability-issue");
-					const reasonText =
-						REASON_TEXT[res.reasonCode] || res.reasonCode || "?";
-					verdict.appendChild(
-						document.createTextNode(reasonText + ". "),
-					);
-					const winner = res.winner;
-					if (winner) {
-						verdict.appendChild(
-							el(
-								"code",
-								"",
-								winner.location +
-									" copy · " +
-									winner.integrity,
-							),
-						);
-					}
-					if (res.blockers?.length) {
-						verdict.appendChild(
-							el("small", "", " " + res.blockers.join("; ")),
-						);
-					}
-					const profile = res.profile;
-					if (profile) {
-						verdict.appendChild(
-							el(
-								"small",
-								"",
-								" [evidence: " +
-									profile.evidence +
-									" · " +
-									profile.runtimeVersion +
-									"]",
-							),
-						);
-					}
-					row.appendChild(verdict);
-					explainSection.appendChild(row);
-				}
-			})
-			.catch(() => {
-				explainSection.removeChild(explainStatus);
-				explainSection.appendChild(
-					el("div", "portability-issue", "Explain unavailable."),
-				);
-			});
-		const desc = d.copies[0].description;
+            section.appendChild(row);
+          }
+          body.appendChild(section);
+        }
+        // Explain: how (and whether) each runtime discovers this skill.
+        // Reason codes are the contract; the prose below is UI-side per the
+        // discovery design (negative cases are the killer feature).
+        const explainSection = el("section", "portability explain");
+        explainSection.appendChild(
+          el("h3", "", "Explain · who sees this skill"),
+        );
+        body.appendChild(explainSection);
+        const explainStatus = el("div", "portability-issue", "Loading...");
+        explainSection.appendChild(explainStatus);
+        fetch("/api/explain?name=" + encodeURIComponent(name))
+          .then((r) => r.json())
+          .then((report) => {
+            explainSection.removeChild(explainStatus);
+            for (const runtime of COMPAT_AGENTS) {
+              const res = report.agents?.[runtime];
+              if (!res) continue;
+              const found = res.reasonCode?.startsWith("found");
+              const row = el("div", "portability-agent");
+              row.appendChild(el("strong", "", runtime));
+              row.appendChild(
+                el(
+                  "span",
+                  "status " + (found ? "ok" : "warn"),
+                  found
+                    ? "SEES"
+                    : res.reasonCode === "not-found"
+                      ? "NOT SEEN"
+                      : "UNKNOWN",
+                ),
+              );
+              const verdict = el("div", "portability-issue");
+              const reasonText =
+                REASON_TEXT[res.reasonCode] || res.reasonCode || "?";
+              verdict.appendChild(document.createTextNode(reasonText + ". "));
+              const winner = res.winner;
+              if (winner) {
+                verdict.appendChild(
+                  el(
+                    "code",
+                    "",
+                    winner.location + " copy · " + winner.integrity,
+                  ),
+                );
+              }
+              if (res.blockers?.length) {
+                verdict.appendChild(
+                  el("small", "", " " + res.blockers.join("; ")),
+                );
+              }
+              const profile = res.profile;
+              if (profile) {
+                verdict.appendChild(
+                  el(
+                    "small",
+                    "",
+                    " [evidence: " +
+                      profile.evidence +
+                      " · " +
+                      profile.runtimeVersion +
+                      "]",
+                  ),
+                );
+              }
+              row.appendChild(verdict);
+              explainSection.appendChild(row);
+            }
+          })
+          .catch(() => {
+            explainSection.removeChild(explainStatus);
+            explainSection.appendChild(
+              el("div", "portability-issue", "Explain unavailable."),
+            );
+          });
+        const desc = d.copies[0].description;
         if (desc) body.appendChild(el("div", "meta", "What it does: " + desc));
         const tags = d.copies[0].tags;
         if (tags && tags.length)

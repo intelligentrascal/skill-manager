@@ -63,7 +63,9 @@ export const DISCOVERY_PROFILES: Record<string, DiscoveryProfile> = {
 		precedence: ["project", "global"],
 		precedenceEvidence: "documented",
 		trustRequiredKinds: [],
-		notes: ["Claude Code discovers global and project skills; project wins on collision."],
+		notes: [
+			"Claude Code discovers global and project skills; project wins on collision.",
+		],
 	},
 	codex: {
 		agent: "codex",
@@ -88,6 +90,8 @@ export const DISCOVERY_PROFILES: Record<string, DiscoveryProfile> = {
 		precedence: ["project", "global"],
 		precedenceEvidence: "inferred",
 		trustRequiredKinds: [],
-		notes: ["OpenCode loads Agent Skills; exact precedence unverified - inferred."],
+		notes: [
+			"OpenCode loads Agent Skills; exact precedence unverified - inferred.",
+		],
 	},
 };

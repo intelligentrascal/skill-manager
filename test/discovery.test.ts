@@ -5,10 +5,30 @@ import { DISCOVERY_PROFILES } from "../src/discoveryProfiles.ts";
 
 // home-based fixture so ~-prefixed discovery paths match real copy paths
 const HOME = "/c";
-const copies = (): { location: string; path: string; sha: string; repoClean?: boolean }[] => [
-	{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
-	{ location: "pi", path: "/c/.pi/agent/skills/x", sha: "bbb", repoClean: true },
-	{ location: "shared", path: "/c/.agents/skills/x", sha: "ccc", repoClean: true },
+const copies = (): {
+	location: string;
+	path: string;
+	sha: string;
+	repoClean?: boolean;
+}[] => [
+	{
+		location: "claude",
+		path: "/c/.claude/skills/x",
+		sha: "aaa",
+		repoClean: true,
+	},
+	{
+		location: "pi",
+		path: "/c/.pi/agent/skills/x",
+		sha: "bbb",
+		repoClean: true,
+	},
+	{
+		location: "shared",
+		path: "/c/.agents/skills/x",
+		sha: "ccc",
+		repoClean: true,
+	},
 	{ location: "repo", path: "/r/skills/x", sha: "ddd", repoClean: true },
 ];
 
@@ -28,7 +48,12 @@ test("pi discovers its own + shared copies; its copy wins on precedence", () => 
 
 test("negative case: a claude-only skill is NOT found by pi", () => {
 	const claudeOnly = [
-		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
+		{
+			location: "claude",
+			path: "/c/.claude/skills/x",
+			sha: "aaa",
+			repoClean: true,
+		},
 	];
 	const r = resolveExplain("pi", DISCOVERY_PROFILES.pi, claudeOnly, HOME);
 	assert.equal(r.reasonCode, "not-found");
@@ -54,23 +79,43 @@ test("unknown profile returns unknown-no-profile, never a guess", () => {
 
 test("integrity is measured against the repo source", () => {
 	const drifted = [
-		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
+		{
+			location: "claude",
+			path: "/c/.claude/skills/x",
+			sha: "aaa",
+			repoClean: true,
+		},
 		{ location: "repo", path: "/r/skills/x", sha: "ddd", repoClean: true },
 	];
 	const r = resolveExplain("claude", DISCOVERY_PROFILES.claude, drifted, HOME);
 	assert.equal(r.winner!.integrity, "drifted"); // aaa != ddd
 
 	const matching = [
-		{ location: "claude", path: "/c/.claude/skills/x", sha: "ddd", repoClean: true },
+		{
+			location: "claude",
+			path: "/c/.claude/skills/x",
+			sha: "ddd",
+			repoClean: true,
+		},
 		{ location: "repo", path: "/r/skills/x", sha: "ddd", repoClean: true },
 	];
-	const r2 = resolveExplain("claude", DISCOVERY_PROFILES.claude, matching, HOME);
+	const r2 = resolveExplain(
+		"claude",
+		DISCOVERY_PROFILES.claude,
+		matching,
+		HOME,
+	);
 	assert.equal(r2.winner!.integrity, "matching");
 });
 
 test("unmanaged when there is no repo source to compare against", () => {
 	const noRepo = [
-		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
+		{
+			location: "claude",
+			path: "/c/.claude/skills/x",
+			sha: "aaa",
+			repoClean: true,
+		},
 	];
 	const r = resolveExplain("claude", DISCOVERY_PROFILES.claude, noRepo, HOME);
 	assert.equal(r.winner!.integrity, "unmanaged");
@@ -90,7 +135,12 @@ test("trusted-project copies are discovered but blocked until trust is verifiabl
 		notes: [],
 	};
 	const trusted = [
-		{ location: "shared", path: "/c/proj/.pi/skills/x", sha: "aaa", repoClean: true },
+		{
+			location: "shared",
+			path: "/c/proj/.pi/skills/x",
+			sha: "aaa",
+			repoClean: true,
+		},
 	];
 	const r = resolveExplain("pi", projProfile, trusted, HOME);
 	assert.equal(r.reasonCode, "blocked-trust");
@@ -101,9 +151,24 @@ test("trusted-project copies are discovered but blocked until trust is verifiabl
 
 test("winner basis is honest about precedence confidence", () => {
 	const multi = [
-		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
-		{ location: "pi", path: "/c/.pi/agent/skills/x", sha: "bbb", repoClean: true },
-		{ location: "shared", path: "/c/.agents/skills/x", sha: "ccc", repoClean: true },
+		{
+			location: "claude",
+			path: "/c/.claude/skills/x",
+			sha: "aaa",
+			repoClean: true,
+		},
+		{
+			location: "pi",
+			path: "/c/.pi/agent/skills/x",
+			sha: "bbb",
+			repoClean: true,
+		},
+		{
+			location: "shared",
+			path: "/c/.agents/skills/x",
+			sha: "ccc",
+			repoClean: true,
+		},
 	];
 	// pi: multiple matching candidates + inferred precedence -> precedence-inferred
 	const r = resolveExplain("pi", DISCOVERY_PROFILES.pi, multi, HOME);
@@ -126,8 +191,18 @@ test("winner basis is honest about precedence confidence", () => {
 		notes: [],
 	};
 	const twoKinds = [
-		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
-		{ location: "claude", path: "/c/proj/.claude/skills/x", sha: "bbb", repoClean: true },
+		{
+			location: "claude",
+			path: "/c/.claude/skills/x",
+			sha: "aaa",
+			repoClean: true,
+		},
+		{
+			location: "claude",
+			path: "/c/proj/.claude/skills/x",
+			sha: "bbb",
+			repoClean: true,
+		},
 	];
 	const r3 = resolveExplain("claude", docProfile, twoKinds, HOME);
 	assert.equal(r3.winnerBasis, "precedence-documented");
@@ -140,7 +215,9 @@ test("all shipped profiles carry evidence and version facts", () => {
 		assert.ok(profile.paths.length > 0, `${id} paths`);
 		assert.ok(profile.precedence.length > 0, `${id} precedence`);
 		assert.ok(
-			["documented", "inferred", "unknown"].includes(profile.precedenceEvidence),
+			["documented", "inferred", "unknown"].includes(
+				profile.precedenceEvidence,
+			),
 			`${id} precedenceEvidence`,
 		);
 	}

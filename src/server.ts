@@ -451,7 +451,7 @@ const server = createServer(
 									kind: p.kind,
 									exists: p.exists,
 								})),
-						  }
+							}
 						: undefined,
 					compatibility: compat?.agents[id] ?? null,
 				};
