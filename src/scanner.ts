@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -122,6 +122,19 @@ export function hashFile(path: string): string {
 
 // Find a plausible upstream GitHub repo for a skill by scanning its SKILL.md
 // for github.com/<owner>/<repo> references (install lines, source links).
+export function isRepoCopyClean(repoGitRoot: string, skillPath: string): boolean {
+  try {
+    const repoRelPath = relative(repoGitRoot, skillPath).replace(/\\/g, "/");
+    execFileSync("git", ["-C", repoGitRoot, "diff", "--quiet", "HEAD", "--", repoRelPath], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function extractUpstream(content: string): string | undefined {
 	const seen = new Set<string>();
 	const re = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/g;
@@ -240,17 +253,7 @@ export function scanAll(): Inventory {
     // repoClean for repo copies
     for (const rec of copies) {
       if (rec.location === "repo" && rec.nested) {
-        try {
-          const repoRelPath = "skills/" + relative(join(repoGitRoot, "skills"), rec.path).replace(/\\/g, "/");
-          const gitContent = execSync(
-            `git -C "${repoGitRoot}" show HEAD:"${repoRelPath}"`,
-            { encoding: "utf-8", windowsHide: true },
-          );
-          const gitSha = createHash("sha256").update(gitContent).digest("hex");
-          rec.repoClean = gitSha === rec.sha;
-        } catch {
-          rec.repoClean = false;
-        }
+        rec.repoClean = isRepoCopyClean(repoGitRoot, rec.path);
       }
     }
   }

@@ -44,9 +44,11 @@ Open the URL. That's it.
   - `OK` - a single copy, or multiple identical copies
   - `DUP` - multiple copies with identical content (consistent, just installed everywhere)
   - `DRIFT` - copies disagree (same name, different content - the dangerous one)
-- **`repoClean`** - for repo skills: does the on-disk copy match git HEAD?
+- **`repoClean`** - for repo skills: does `git status` show that the on-disk copy is unchanged from git HEAD?
 - **Upstream check** - for skills with a detected GitHub source, one click compares your copy against the upstream `SKILL.md` and flags `STALE` / `UP TO DATE`
 - **Drift diff** - for drifted skills, an inline line-diff shows exactly what differs between two copies
+- **Attention queue** - a prioritized, read-only list of drifted and uncommitted repo copies to inspect first
+- **Static snapshot export** - download a self-contained HTML inventory report with no local paths or skill bodies
 - **Search + filters** - search by name/description, filter by harness (Pi /
   OpenCode / Claude / shared / repo) and by status (OK / DUP / DRIFT)
 - **Detail drawer** - every copy (location, sha, mtime), the description, tags,
@@ -124,15 +126,18 @@ src/
 | `GET /` | the dashboard |
 | `GET /api/inventory` | full inventory (cached 60s) |
 | `GET /api/skill?name=X` | copies + description + full `SKILL.md` |
+| `GET /api/actions` | read-only prioritized health recommendations |
+| `GET /api/snapshot` | downloaded, standalone HTML inventory snapshot |
 | `GET /api/refresh` | force re-scan, returns inventory |
 
 ## Roadmap
 
 - [x] GitHub upstream check for third-party skills (is there a newer version?)
 - [x] Drift diff - see exactly what changed between copies
-- [ ] Export a static snapshot (HTML) for sharing
-- [ ] Suggested actions: sync the drifted copy, clean duplicates
+- [x] Export a static snapshot (HTML) for sharing
+- [x] Suggested actions: inspect drifted or uncommitted repo copies
 - [ ] Watch mode: live re-scan on file changes
+- [ ] Safe, confirmation-based sync workflow with a preview and rollback path
 
 ## License
 

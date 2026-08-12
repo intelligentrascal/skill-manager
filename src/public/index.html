@@ -133,6 +133,52 @@
       .stat .n.bad {
         color: var(--bad);
       }
+      .health {
+        margin: 0 0 24px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .health-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 16px;
+        background: var(--card);
+        border-bottom: 1px solid var(--line);
+      }
+      .health-head h2 {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .health-head span {
+        color: var(--ink3);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+      .health-item {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        align-items: center;
+        width: 100%;
+        padding: 12px 16px;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg2);
+        color: var(--ink);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .health-item:last-child { border-bottom: 0; }
+      .health-item:hover, .health-item:focus-visible { background: var(--card); outline: 2px solid var(--accent); outline-offset: -2px; }
+      .health-item strong { font-family: var(--mono); font-size: 12px; }
+      .health-item small { color: var(--ink2); font-size: 12px; }
+      .health-empty { padding: 14px 16px; color: var(--good); font-family: var(--mono); font-size: 12px; }
       .controls {
         display: flex;
         gap: 10px;
@@ -398,9 +444,17 @@
         <span class="st" id="gen">scanning...</span>
         <span class="sp"></span>
         <button id="refreshBtn">Re-scan</button>
+        <button id="exportBtn">Export snapshot</button>
         <button id="themeBtn">Theme</button>
       </div>
       <div class="stats" id="stats"></div>
+      <section class="health" aria-labelledby="healthTitle">
+        <div class="health-head">
+          <h2 id="healthTitle">Attention queue</h2>
+          <span id="healthMeta"></span>
+        </div>
+        <div id="healthItems"></div>
+      </section>
       <div class="controls">
         <input id="q" placeholder="search skills..." autocomplete="off" />
         <div class="chips" id="harnessChips"></div>
@@ -421,6 +475,7 @@
     <div id="toast"></div>
     <script>
       let DATA = null;
+      let ACTIONS = [];
       let q = "";
       let harness = "all";
       let status = "all";
@@ -434,14 +489,19 @@
       }
 
       async function load() {
-        const r = await fetch("/api/inventory");
-        DATA = await r.json();
+        const [inventoryResponse, actionsResponse] = await Promise.all([
+          fetch("/api/inventory"),
+          fetch("/api/actions"),
+        ]);
+        DATA = await inventoryResponse.json();
+        ACTIONS = (await actionsResponse.json()).actions || [];
         document.getElementById("gen").textContent =
           "generated " +
           (DATA.generatedAt || "").replace("T", " ").slice(0, 19);
         renderHarnessChips();
         renderStatusChips();
         renderStats();
+        renderHealthActions();
         render();
       }
 
@@ -511,6 +571,34 @@
         add(s.drift ?? 0, "drift", "bad");
       }
 
+      function renderHealthActions() {
+        const wrap = document.getElementById("healthItems");
+        const meta = document.getElementById("healthMeta");
+        wrap.textContent = "";
+        meta.textContent = ACTIONS.length
+          ? ACTIONS.length + (ACTIONS.length === 1 ? " item" : " items")
+          : "all clear";
+        if (!ACTIONS.length) {
+          wrap.appendChild(el("div", "health-empty", "No drift or uncommitted repo skills detected."));
+          return;
+        }
+        for (const action of ACTIONS) {
+          const item = el("button", "health-item");
+          const badge = el(
+            "span",
+            "badge " + (action.priority === "high" ? "b-bad" : "b-warn"),
+            action.priority,
+          );
+          const copy = el("span");
+          copy.appendChild(el("strong", "", action.skill + " - " + action.title));
+          copy.appendChild(el("small", "", action.detail));
+          const open = el("span", "har on", "inspect");
+          item.append(badge, copy, open);
+          item.addEventListener("click", () => openSkill(action.skill));
+          wrap.appendChild(item);
+        }
+      }
+
       function statusOf(name) {
         const copies = DATA.byName[name];
         if (!copies || copies.length === 0) return "unique";
@@ -577,27 +665,48 @@
       }
 
       // Minimal LCS-based line diff - returns {mark, line}[] with + - space markers.
-function simpleDiff(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = m - 1; i >= 0; i--) {
-    for (let j = n - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const out = [];
-  let i = 0, j = 0;
-  while (i < m && j < n) {
-    if (a[i] === b[j]) { out.push({ mark: " ", line: a[i] }); i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ mark: "-", line: a[i] }); i++; }
-    else { out.push({ mark: "+", line: b[j] }); j++; }
-  }
-  while (i < m) { out.push({ mark: "-", line: a[i] }); i++; }
-  while (j < n) { out.push({ mark: "+", line: b[j] }); j++; }
-  return out.slice(0, 120); // cap very long diffs
-}
+      function simpleDiff(a, b) {
+        const m = a.length,
+          n = b.length;
+        const dp = Array.from({ length: m + 1 }, () =>
+          new Array(n + 1).fill(0),
+        );
+        for (let i = m - 1; i >= 0; i--) {
+          for (let j = n - 1; j >= 0; j--) {
+            dp[i][j] =
+              a[i] === b[j]
+                ? dp[i + 1][j + 1] + 1
+                : Math.max(dp[i + 1][j], dp[i][j + 1]);
+          }
+        }
+        const out = [];
+        let i = 0,
+          j = 0;
+        while (i < m && j < n) {
+          if (a[i] === b[j]) {
+            out.push({ mark: " ", line: a[i] });
+            i++;
+            j++;
+          } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+            out.push({ mark: "-", line: a[i] });
+            i++;
+          } else {
+            out.push({ mark: "+", line: b[j] });
+            j++;
+          }
+        }
+        while (i < m) {
+          out.push({ mark: "-", line: a[i] });
+          i++;
+        }
+        while (j < n) {
+          out.push({ mark: "+", line: b[j] });
+          j++;
+        }
+        return out.slice(0, 120); // cap very long diffs
+      }
 
-async function openSkill(name) {
+      async function openSkill(name) {
         const r = await fetch("/api/skill?name=" + encodeURIComponent(name));
         const d = await r.json();
         document.getElementById("dTitle").textContent = name;
@@ -633,7 +742,8 @@ async function openSkill(name) {
         if (statusOf(name) === "drift" && d.texts && d.texts.length >= 2) {
           const bySha = {};
           for (const c of d.texts) {
-            const k = (d.copies.find(x => x.location === c.location) || {}).sha || "";
+            const k =
+              (d.copies.find((x) => x.location === c.location) || {}).sha || "";
             if (!bySha[k]) bySha[k] = c;
           }
           const distinct = Object.values(bySha);
@@ -641,7 +751,17 @@ async function openSkill(name) {
             const a = distinct[0].text.split(String.fromCharCode(10));
             const b = distinct[1].text.split(String.fromCharCode(10));
             const diffLines = simpleDiff(a, b);
-            body.appendChild(el("div", "meta", "Drift diff (" + distinct[0].location + " vs " + distinct[1].location + "):"));
+            body.appendChild(
+              el(
+                "div",
+                "meta",
+                "Drift diff (" +
+                  distinct[0].location +
+                  " vs " +
+                  distinct[1].location +
+                  "):",
+              ),
+            );
             const pre = el("pre", "skilltext");
             pre.style.maxHeight = "260px";
             for (const dline of diffLines) {
@@ -663,10 +783,17 @@ async function openSkill(name) {
           btn.addEventListener("click", async () => {
             btn.textContent = "Checking...";
             try {
-              const r = await fetch("/api/upstream?name=" + encodeURIComponent(name));
+              const r = await fetch(
+                "/api/upstream?name=" + encodeURIComponent(name),
+              );
               const u = await r.json();
-              if (u.error) { btn.textContent = "Upstream: " + up + " (" + u.error + ")"; return; }
-              btn.textContent = u.stale ? "STALE - newer version upstream: " + up : "Up to date: " + up;
+              if (u.error) {
+                btn.textContent = "Upstream: " + up + " (" + u.error + ")";
+                return;
+              }
+              btn.textContent = u.stale
+                ? "STALE - newer version upstream: " + up
+                : "Up to date: " + up;
               btn.style.borderColor = u.stale ? "var(--bad)" : "var(--good)";
               btn.style.color = u.stale ? "var(--bad)" : "var(--good)";
             } catch {
@@ -701,6 +828,25 @@ async function openSkill(name) {
           t.textContent = "Done";
           setTimeout(() => t.classList.remove("show"), 1200);
         });
+      document.getElementById("exportBtn").addEventListener("click", async () => {
+        const button = document.getElementById("exportBtn");
+        button.disabled = true;
+        button.textContent = "Preparing...";
+        try {
+          const response = await fetch("/api/snapshot");
+          if (!response.ok) throw new Error("Snapshot request failed");
+          const blob = await response.blob();
+          const link = document.createElement("a");
+          const href = URL.createObjectURL(blob);
+          link.href = href;
+          link.download = "skill-manager-snapshot.html";
+          link.click();
+          URL.revokeObjectURL(href);
+        } finally {
+          button.disabled = false;
+          button.textContent = "Export snapshot";
+        }
+      });
       document.getElementById("themeBtn").addEventListener("click", () => {
         const h = document.documentElement;
         h.setAttribute(
