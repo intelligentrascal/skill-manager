@@ -1,0 +1,16 @@
+{
+  "name": "skill-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local skills management dashboard - inventory, status, and up-to-date tracking for AI agent skills across harnesses",
+  "scripts": {
+    "scan": "node --experimental-strip-types src/scanner.ts",
+    "serve": "node --experimental-strip-types src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^22.0.0"
+  }
+}
