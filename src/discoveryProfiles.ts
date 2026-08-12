@@ -42,6 +42,8 @@ export const DISCOVERY_PROFILES: Record<string, DiscoveryProfile> = {
 			},
 		],
 		precedence: ["explicit", "package", "trusted-project", "global"],
+		precedenceEvidence: "inferred",
+		trustRequiredKinds: ["trusted-project"],
 		notes: [
 			"Project resources require trusted-project approval; otherwise they are blocked.",
 			"Explicit --skill paths remain enabled with --no-skills.",
@@ -59,6 +61,8 @@ export const DISCOVERY_PROFILES: Record<string, DiscoveryProfile> = {
 			{ path: ".claude/skills", kind: "project" },
 		],
 		precedence: ["project", "global"],
+		precedenceEvidence: "documented",
+		trustRequiredKinds: [],
 		notes: ["Claude Code discovers global and project skills; project wins on collision."],
 	},
 	codex: {
@@ -67,6 +71,8 @@ export const DISCOVERY_PROFILES: Record<string, DiscoveryProfile> = {
 		evidence: "inferred",
 		paths: [{ path: "~/.codex/skills", kind: "global" }],
 		precedence: ["global"],
+		precedenceEvidence: "inferred",
+		trustRequiredKinds: [],
 		notes: [
 			"Agent Skills support exists but path semantics are unverified here; treat as inferred.",
 		],
@@ -80,6 +86,8 @@ export const DISCOVERY_PROFILES: Record<string, DiscoveryProfile> = {
 			{ path: ".opencode/skills", kind: "project" },
 		],
 		precedence: ["project", "global"],
+		precedenceEvidence: "inferred",
+		trustRequiredKinds: [],
 		notes: ["OpenCode loads Agent Skills; exact precedence unverified - inferred."],
 	},
 };

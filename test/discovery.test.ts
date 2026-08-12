@@ -76,11 +76,72 @@ test("unmanaged when there is no repo source to compare against", () => {
 	assert.equal(r.winner!.integrity, "unmanaged");
 });
 
+test("trusted-project copies are discovered but blocked until trust is verifiable", () => {
+	// inline profile: an absolute trusted-project path (a future project-aware
+	// scanner could produce this; the resolver must gate it correctly)
+	const projProfile = {
+		agent: "pi" as const,
+		runtimeVersion: "0.84.1",
+		evidence: "documented" as const,
+		paths: [{ path: "/c/proj/.pi/skills", kind: "trusted-project" as const }],
+		precedence: ["trusted-project" as const],
+		precedenceEvidence: "inferred" as const,
+		trustRequiredKinds: ["trusted-project" as const],
+		notes: [],
+	};
+	const trusted = [
+		{ location: "shared", path: "/c/proj/.pi/skills/x", sha: "aaa", repoClean: true },
+	];
+	const r = resolveExplain("pi", projProfile, trusted, HOME);
+	assert.equal(r.reasonCode, "blocked-trust");
+	assert.ok(r.blockers.length > 0);
+	assert.ok(r.winner, "candidate is kept");
+	assert.equal(r.winner!.location, "shared");
+});
+
+test("winner basis is honest about precedence confidence", () => {
+	const multi = [
+		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
+		{ location: "pi", path: "/c/.pi/agent/skills/x", sha: "bbb", repoClean: true },
+		{ location: "shared", path: "/c/.agents/skills/x", sha: "ccc", repoClean: true },
+	];
+	// pi: multiple matching candidates + inferred precedence -> precedence-inferred
+	const r = resolveExplain("pi", DISCOVERY_PROFILES.pi, multi, HOME);
+	assert.equal(r.winnerBasis, "precedence-inferred");
+	// claude: only its own path matches -> unique (not a precedence claim)
+	const r2 = resolveExplain("claude", DISCOVERY_PROFILES.claude, multi, HOME);
+	assert.equal(r2.winnerBasis, "unique");
+	// inline profile with documented precedence + two kinds -> precedence-documented
+	const docProfile = {
+		agent: "claude" as const,
+		runtimeVersion: "2.x",
+		evidence: "documented" as const,
+		paths: [
+			{ path: "/c/.claude/skills", kind: "global" as const },
+			{ path: "/c/proj/.claude/skills", kind: "project" as const },
+		],
+		precedence: ["project" as const, "global" as const],
+		precedenceEvidence: "documented" as const,
+		trustRequiredKinds: [],
+		notes: [],
+	};
+	const twoKinds = [
+		{ location: "claude", path: "/c/.claude/skills/x", sha: "aaa", repoClean: true },
+		{ location: "claude", path: "/c/proj/.claude/skills/x", sha: "bbb", repoClean: true },
+	];
+	const r3 = resolveExplain("claude", docProfile, twoKinds, HOME);
+	assert.equal(r3.winnerBasis, "precedence-documented");
+});
+
 test("all shipped profiles carry evidence and version facts", () => {
 	for (const [id, profile] of Object.entries(DISCOVERY_PROFILES)) {
 		assert.ok(profile.runtimeVersion.length > 0, `${id} runtimeVersion`);
 		assert.ok(["documented", "inferred", "unknown"].includes(profile.evidence));
 		assert.ok(profile.paths.length > 0, `${id} paths`);
 		assert.ok(profile.precedence.length > 0, `${id} precedence`);
+		assert.ok(
+			["documented", "inferred", "unknown"].includes(profile.precedenceEvidence),
+			`${id} precedenceEvidence`,
+		);
 	}
 });

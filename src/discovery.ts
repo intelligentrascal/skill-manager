@@ -37,6 +37,10 @@ export interface DiscoveryProfile {
 	paths: DiscoveryPath[];
 	/** order wins on collision (first listed = highest precedence). */
 	precedence: DiscoveryPath["kind"][];
+	/** confidence in the cross-category precedence ordering itself. */
+	precedenceEvidence: Evidence;
+	/** kinds that need approval before the runtime LOADS them (pi: trusted-project). */
+	trustRequiredKinds: DiscoveryPath["kind"][];
 	notes: string[];
 }
 
@@ -54,6 +58,7 @@ export type ExplainReasonCode =
 export interface ExplainCandidate {
 	location: string;
 	path: string;
+	kind: DiscoveryPath["kind"];
 	integrity: Integrity;
 	sha: string;
 }
@@ -63,6 +68,8 @@ export interface ExplainResult {
 	reasonCode: ExplainReasonCode;
 	candidates: ExplainCandidate[];
 	winner?: ExplainCandidate;
+	/** how confident the winner pick is - never overclaim order we lack. */
+	winnerBasis?: "unique" | "precedence-documented" | "precedence-inferred";
 	/** human-readable blockers (path missing, trust not granted, ...). */
 	blockers: string[];
 }
@@ -146,6 +153,7 @@ export function resolveExplain(
 		candidates.push({
 			location: copy.location,
 			path: copy.path,
+			kind: match.kind,
 			integrity,
 			sha: copy.sha,
 		});
@@ -167,17 +175,37 @@ export function resolveExplain(
 		package: "found-package",
 		explicit: "found-explicit",
 	};
+	const winnerBasis =
+		candidates.length === 1
+			? "unique"
+			: profile.precedenceEvidence === "documented"
+				? "precedence-documented"
+				: "precedence-inferred";
 	for (const kind of profile.precedence) {
-		const match = candidates.find((c) => LOCATION_KINDS[c.location] === kind);
-		if (match) {
+		const match = candidates.find((c) => c.kind === kind);
+		if (!match) continue;
+		// trust-gated kinds load only after approval; the scanner cannot verify
+		// approval, so the honest answer is blocked-trust (candidate kept).
+		if (profile.trustRequiredKinds.includes(kind)) {
 			return {
 				agent,
-				reasonCode: KIND_REASON[kind],
+				reasonCode: "blocked-trust",
 				candidates,
 				winner: match,
-				blockers,
+				winnerBasis,
+				blockers: [
+					"discovered but not loaded - project trust is required and cannot be verified from the scanner",
+				],
 			};
 		}
+		return {
+			agent,
+			reasonCode: KIND_REASON[kind],
+			candidates,
+			winner: match,
+			winnerBasis,
+			blockers,
+		};
 	}
 
 	return {
