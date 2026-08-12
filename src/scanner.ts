@@ -17,6 +17,7 @@ interface SkillRecord {
   name: string;
   location: string;
   harnesses: string[];
+  upstream?: string;
   description: string;
   tags: string[];
   model: string;
@@ -119,6 +120,26 @@ export function hashFile(path: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+// Find a plausible upstream GitHub repo for a skill by scanning its SKILL.md
+// for github.com/<owner>/<repo> references (install lines, source links).
+export function extractUpstream(content: string): string | undefined {
+	const seen = new Set<string>();
+	const re = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/g;
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(content)) !== null) {
+		const parts = m[0].split("/");
+		if (parts.length < 3) continue;
+		const owner = parts[1];
+		const repo = parts[2].replace(/\.+$/, "");
+		if (!owner || !repo) continue;
+		const key = owner + "/" + repo;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		return key;
+	}
+	return undefined;
+}
+
 export function scanAll(): Inventory {
   const warnings: string[] = [];
   const allRecords: SkillRecord[] = [];
@@ -176,6 +197,7 @@ export function scanAll(): Inventory {
         name: sf.name,
         location: loc.name,
         harnesses: [], // filled after grouping
+        upstream: extractUpstream(content),
         description,
         tags,
         model,

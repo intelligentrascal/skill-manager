@@ -45,6 +45,8 @@ Open the URL. That's it.
   - `DUP` - multiple copies with identical content (consistent, just installed everywhere)
   - `DRIFT` - copies disagree (same name, different content - the dangerous one)
 - **`repoClean`** - for repo skills: does the on-disk copy match git HEAD?
+- **Upstream check** - for skills with a detected GitHub source, one click compares your copy against the upstream `SKILL.md` and flags `STALE` / `UP TO DATE`
+- **Drift diff** - for drifted skills, an inline line-diff shows exactly what differs between two copies
 - **Search + filters** - search by name/description, filter by harness (Pi /
   OpenCode / Claude / shared / repo) and by status (OK / DUP / DRIFT)
 - **Detail drawer** - every copy (location, sha, mtime), the description, tags,
@@ -126,7 +128,8 @@ src/
 
 ## Roadmap
 
-- [ ] GitHub upstream check for third-party skills (is there a newer version?)
+- [x] GitHub upstream check for third-party skills (is there a newer version?)
+- [x] Drift diff - see exactly what changed between copies
 - [ ] Export a static snapshot (HTML) for sharing
 - [ ] Suggested actions: sync the drifted copy, clean duplicates
 - [ ] Watch mode: live re-scan on file changes
