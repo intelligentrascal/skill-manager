@@ -3,7 +3,13 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { repoRoot, SCAN_LOCATIONS } from "./config.ts";
+import { repoRoot, SCAN_LOCATIONS, type ScanLocation } from "./config.ts";
+import {
+	ManifestValidationError,
+	readManifestSync,
+	type Provenance,
+	type SkillManagerManifest,
+} from "./manifest.ts";
 
 interface SkillFile {
 	dir: string;
@@ -13,7 +19,7 @@ interface SkillFile {
 	nested: boolean;
 }
 
-interface SkillRecord {
+export interface SkillRecord {
 	name: string;
 	location: string;
 	harnesses: string[];
@@ -28,6 +34,7 @@ interface SkillRecord {
 	mtimeISO: string;
 	nested: boolean;
 	repoClean?: boolean;
+	provenance?: Provenance;
 	fields: string[];
 }
 
@@ -186,12 +193,38 @@ export function extractUpstream(content: string): string | undefined {
 	return undefined;
 }
 
-export function scanAll(): Inventory {
+export interface ScanOptions {
+	locations?: ScanLocation[];
+	manifestPath?: string;
+}
+
+/** Read a repository manifest without making an absent manifest an error. */
+export function loadRepoManifest(
+	path = join(repoRoot(), "skillmgr.yaml"),
+): SkillManagerManifest | null {
+	try {
+		return readManifestSync(path);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+		throw error;
+	}
+}
+
+export function scanAll(options: ScanOptions = {}): Inventory {
 	const warnings: string[] = [];
 	const allRecords: SkillRecord[] = [];
 	const locationCounts: Record<string, number> = {};
+	const locationsToScan = options.locations ?? SCAN_LOCATIONS;
+	let manifest: SkillManagerManifest | null = null;
+	try {
+		manifest = loadRepoManifest(options.manifestPath);
+	} catch (error) {
+		const detail =
+			error instanceof ManifestValidationError ? error.message : String(error);
+		warnings.push(`Ignoring skillmgr.yaml: ${detail}`);
+	}
 
-	for (const loc of SCAN_LOCATIONS) {
+	for (const loc of locationsToScan) {
 		const nested = (loc as { nested?: boolean }).nested ?? false;
 		let skillFiles: SkillFile[];
 		try {
@@ -244,6 +277,8 @@ export function scanAll(): Inventory {
 				/^[a-zA-Z][a-zA-Z0-9-]*$/.test(k),
 			);
 
+			const manifestRecord =
+				loc.name === "repo" ? manifest?.skills[sf.name] : undefined;
 			const record: SkillRecord = {
 				name: sf.name,
 				location: loc.name,
@@ -259,6 +294,9 @@ export function scanAll(): Inventory {
 				mtimeISO,
 				nested,
 				repoClean: undefined,
+				...(loc.name === "repo"
+					? { provenance: manifestRecord?.provenance ?? "mine" }
+					: {}),
 				fields,
 			};
 
@@ -342,7 +380,7 @@ export function scanAll(): Inventory {
 		newestMtime,
 	};
 
-	const locations: LocationSummary[] = SCAN_LOCATIONS.map((loc) => ({
+	const locations: LocationSummary[] = locationsToScan.map((loc) => ({
 		name: loc.name,
 		root: loc.root,
 		count: locationCounts[loc.name] ?? 0,

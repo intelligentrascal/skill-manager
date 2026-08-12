@@ -6,9 +6,17 @@ import {
 import { readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { scanAll } from "./scanner.ts";
+import { loadRepoManifest, scanAll } from "./scanner.ts";
 import { checkUpstream } from "./upstream.ts";
-import { compatReport, AGENT_IDS } from "./compat.ts";
+import { compatReport, AGENT_IDS, type AgentId } from "./compat.ts";
+import {
+	createVariant,
+	deployVariant,
+	variantStoreRoot,
+	verifyDeployedVariant,
+} from "./variantStore.ts";
+import { adaptSkill } from "./variant.ts";
+import { repoRoot } from "./config.ts";
 import { resolveExplain } from "./discovery.ts";
 import { DISCOVERY_PROFILES } from "./discoveryProfiles.ts";
 import { buildHealthActions } from "./health.ts";
@@ -148,6 +156,21 @@ const server = createServer(
 			const inv = getInventory();
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify(inv));
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/manifest") {
+			try {
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ manifest: loadRepoManifest() }));
+			} catch (error) {
+				res.writeHead(500, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error: error instanceof Error ? error.message : String(error),
+					}),
+				);
+			}
 			return;
 		}
 
@@ -464,6 +487,126 @@ const server = createServer(
 					agents,
 				}),
 			);
+			return;
+		}
+
+		if (req.method === "POST" && url.pathname === "/api/variant") {
+			// Create a variant for an agent from the repo copy (canonical content),
+			// stored in the sidecar store. Returns the adaptation report.
+			let body = "";
+			for await (const chunk of req) body += chunk;
+			let payload: { name?: string; agent?: string } = {};
+			try {
+				payload = JSON.parse(body || "{}");
+			} catch {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Invalid JSON body" }));
+				return;
+			}
+			const name = payload.name;
+			const agent = payload.agent;
+			if (!name || !agent || !AGENT_IDS.includes(agent as AgentId)) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error: "name + agent (pi|claude|codex|opencode) required",
+					}),
+				);
+				return;
+			}
+			const inv = getInventory();
+			const copies = inv.byName[name];
+			const repoCopy = copies?.find((c) => c.location === "repo");
+			if (!repoCopy) {
+				res.writeHead(404, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({ error: "no repo copy to use as canonical source" }),
+				);
+				return;
+			}
+			try {
+				const content = readFileSync(repoCopy.path, "utf-8");
+				const artifact = createVariant(
+					repoRoot(),
+					name,
+					agent as AgentId,
+					content,
+				);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(artifact));
+			} catch (err) {
+				res.writeHead(500, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							err instanceof Error ? err.message : "variant creation failed",
+					}),
+				);
+			}
+			return;
+		}
+
+		if (req.method === "POST" && url.pathname === "/api/variant/deploy") {
+			// Deploy a stored variant to an agent discovery path, then verify it
+			// (removed fields gone, spec 4b). Never leaves a failing variant.
+			let body = "";
+			for await (const chunk of req) body += chunk;
+			let payload: { name?: string; agent?: string; targetPath?: string } = {};
+			try {
+				payload = JSON.parse(body || "{}");
+			} catch {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Invalid JSON body" }));
+				return;
+			}
+			const { name, agent, targetPath } = payload;
+			if (!name || !agent || !targetPath) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({ error: "name + agent + targetPath required" }),
+				);
+				return;
+			}
+			try {
+				const storePath = join(variantStoreRoot(repoRoot()), name, agent);
+				deployVariant(storePath, targetPath);
+				// re-create the adapt report for verification by re-adapting the
+				// canonical copy (same inputs as creation)
+				const inv = getInventory();
+				const repoCopy = inv.byName[name]?.find((c) => c.location === "repo");
+				const canonical = repoCopy ? readFileSync(repoCopy.path, "utf-8") : "";
+				const adapt = adaptSkill(canonical, agent as AgentId);
+				const deployedContent = readFileSync(
+					join(targetPath, "SKILL.md"),
+					"utf-8",
+				);
+				const verified = verifyDeployedVariant(
+					deployedContent,
+					adapt,
+					agent as AgentId,
+				);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						skill: name,
+						agent,
+						deployedTo: targetPath,
+						verified,
+						adapt: {
+							removed: adapt.removed,
+							added: adapt.added,
+							carryOver: adapt.carryOver,
+						},
+					}),
+				);
+			} catch (err) {
+				res.writeHead(500, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error: err instanceof Error ? err.message : "deploy failed",
+					}),
+				);
+			}
 			return;
 		}
 

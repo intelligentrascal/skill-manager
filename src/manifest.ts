@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 
 /** Versioned, repository-owned metadata. It never changes SKILL.md frontmatter. */
 export const MANIFEST_VERSION = 1 as const;
@@ -365,4 +366,9 @@ export async function readManifest(
 	path: string,
 ): Promise<SkillManagerManifest> {
 	return parseManifest(await readFile(path, "utf8"));
+}
+
+/** Synchronous counterpart for the scanner's synchronous inventory pass. */
+export function readManifestSync(path: string): SkillManagerManifest {
+	return parseManifest(readFileSync(path, "utf8"));
 }

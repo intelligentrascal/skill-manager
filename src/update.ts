@@ -27,6 +27,8 @@ export interface SnapshotFile {
 	bytes: number;
 	/** True for a file that must retain executable permissions on deployment. */
 	executable: boolean;
+	/** In-memory text used only for local security analysis; never persist this field. */
+	content?: string;
 }
 
 export interface SkillSnapshot {

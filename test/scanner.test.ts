@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { isRepoCopyClean } from "../src/scanner.ts";
+import { isRepoCopyClean, scanAll } from "../src/scanner.ts";
 
 function git(cwd: string, ...args: string[]): void {
 	execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -25,6 +25,36 @@ test("uses git status rather than byte hashes for repo cleanliness", () => {
 		assert.equal(isRepoCopyClean(root, skill), true);
 		writeFileSync(skill, "---\nname: sample\n---\nchanged\n", "utf-8");
 		assert.equal(isRepoCopyClean(root, skill), false);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("applies provenance from skillmgr.yaml to repo records", () => {
+	const root = mkdtempSync(join(tmpdir(), "skill-manager-manifest-"));
+	try {
+		const skillsRoot = join(root, "skills");
+		for (const name of ["vendor", "local"]) {
+			const dir = join(skillsRoot, "category", name);
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(
+				join(dir, "SKILL.md"),
+				`---\ndescription: ${name}\n---\n`,
+				"utf8",
+			);
+		}
+		writeFileSync(
+			join(root, "skillmgr.yaml"),
+			"version: 1\nskills:\n  vendor:\n    provenance: upstream\n    identity:\n      upstreamUrl: https://example.test/skills\n      subpath: category/vendor\n      pinnedRevision: abc123\n",
+			"utf8",
+		);
+
+		const inventory = scanAll({
+			locations: [{ name: "repo", root: skillsRoot, nested: true }],
+			manifestPath: join(root, "skillmgr.yaml"),
+		});
+		assert.equal(inventory.byName.vendor[0].provenance, "upstream");
+		assert.equal(inventory.byName.local[0].provenance, "mine");
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
