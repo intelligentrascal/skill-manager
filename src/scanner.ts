@@ -142,6 +142,33 @@ export function isRepoCopyClean(
 	}
 }
 
+/**
+ * Batch repo-cleanliness check: ONE git status call for the whole repo instead
+ * of one spawn per copy (223 git subprocess spawns on Windows = the cold-load
+ * bottleneck). Returns the set of dirty/untracked repo-relative paths.
+ */
+export function repoDirtyPaths(repoGitRoot: string): Set<string> {
+	try {
+		const status = execFileSync(
+			"git",
+			["-C", repoGitRoot, "status", "--porcelain", "-uall"],
+			{ encoding: "utf-8", windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
+		);
+		const dirty = new Set<string>();
+		for (const line of status.split(/\r?\n/)) {
+			if (!line.trim()) continue;
+			let path = line.slice(3).trim();
+			const arrow = path.indexOf(" -> ");
+			if (arrow !== -1) path = path.slice(arrow + 4); // renames: new path
+			dirty.add(path.replace(/\\/g, "/"));
+		}
+		return dirty;
+	} catch {
+		return new Set<string>();
+	}
+}
+
+
 export function extractUpstream(content: string): string | undefined {
 	const seen = new Set<string>();
 	const re = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/g;
@@ -259,6 +286,8 @@ export function scanAll(): Inventory {
 
 	// Compute status per name and repoClean for repo copies
 	const repoGitRoot = repoRoot();
+	const dirtyPaths =
+		repoGitRoot && repoGitRoot.length > 0 ? repoDirtyPaths(repoGitRoot) : new Set<string>();
 
 	for (const name of Object.keys(byName)) {
 		const copies = byName[name];
@@ -266,7 +295,8 @@ export function scanAll(): Inventory {
 		// repoClean for repo copies
 		for (const rec of copies) {
 			if (rec.location === "repo" && rec.nested) {
-				rec.repoClean = isRepoCopyClean(repoGitRoot, rec.path);
+				const rel = relative(repoGitRoot, rec.path).replace(/\\/g, "/");
+				rec.repoClean = !dirtyPaths.has(rel);
 			}
 		}
 	}
