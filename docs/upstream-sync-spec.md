@@ -128,6 +128,37 @@ After deploying a variant:
 A variant that passes stays as the deployed copy for that agent; upstream
 updates then rebase onto it with conflict flags (never auto-merge).
 
+### 4c. Duplicate / drift categorization with variants
+
+The current model groups copies by NAME and flags any sha mismatch as drift.
+That is wrong once variants exist: a variant DIFFERS BY DESIGN, so it must
+never count as drift or as a duplicate.
+
+Revised categories (copy role decides, the manifest is the authority):
+
+| category | meaning | example |
+| --- | --- | --- |
+| `mirror` | copy that must match its source | claude/shared copies of a pi skill |
+| `variant` | copy that intentionally differs, LINKED to the skill identity | pi variant of a claude-only skill |
+| `drift` | mirror that differs from its source UNINTENTIONALLY | a fix landed in shared but not claude |
+
+Rules:
+- Identity = provenance + skill name (+ upstream URL for third-party). Copies
+  of the same identity group together regardless of role.
+- A copy is a `variant` only when the manifest declares it (variant record:
+  agent, base revision, deployed path). Without a manifest record, any sha
+  mismatch stays `drift` - the conservative default. Variants must be
+  registered, never inferred from content.
+- The genome strip shows three gene states, not two: mirror-agree (filled),
+  mirror-drift (coral broken), variant (distinct marker - e.g. amber gene with
+  a v marker, never coral). Variant genes are LINKED, not flagged.
+- Status model: OK / MIRROR (renamed from DUP, healthy by design) / DRIFT
+  (unintentional) / VARIANT (registered adaptation).
+- Dedupe actions operate on MIRRORS only. Variants are never dedupe targets.
+- The exact-duplicate fleet finding stays valid for mirrors: identical copies
+  are healthy deployment mirrors, not waste. Variants are a separate,
+  linked category.
+
 ## 5. Data model
 
 ```ts
