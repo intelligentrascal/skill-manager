@@ -1,61 +1,61 @@
 export interface SnapshotCopy {
-  location: string;
-  sha: string;
-  description?: string;
+	location: string;
+	sha: string;
+	description?: string;
 }
 
 export interface SnapshotInventory {
-  generatedAt: string;
-  stats: {
-    totalSkills: number;
-    totalCopies: number;
-    drift: number;
-    duplicate: number;
-    unique: number;
-  };
-  byName: Record<string, SnapshotCopy[]>;
+	generatedAt: string;
+	stats: {
+		totalSkills: number;
+		totalCopies: number;
+		drift: number;
+		duplicate: number;
+		unique: number;
+	};
+	byName: Record<string, SnapshotCopy[]>;
 }
 
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+	return value
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#39;");
 }
 
 function statusOf(copies: SnapshotCopy[]): string {
-  const shas = new Set(copies.map((copy) => copy.sha));
-  if (shas.size > 1) return "DRIFT";
-  return copies.length > 1 ? "DUP" : "OK";
+	const shas = new Set(copies.map((copy) => copy.sha));
+	if (shas.size > 1) return "DRIFT";
+	return copies.length > 1 ? "DUP" : "OK";
 }
 
 export function renderSnapshot(inventory: SnapshotInventory): string {
-  const rows = Object.entries(inventory.byName)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([name, copies]) => {
-      const description = copies[0]?.description ?? "";
-      const harnesses = [...new Set(copies.map((copy) => copy.location))]
-        .sort((left, right) => left.localeCompare(right))
-        .join(", ");
-      const status = statusOf(copies);
-      let statusClass = "good";
-      if (status === "DRIFT") {
-        statusClass = "bad";
-      } else if (status === "DUP") {
-        statusClass = "warn";
-      }
-      return `<tr><td><code>${escapeHtml(name)}</code></td><td><span class="${statusClass}">${status}</span></td><td>${escapeHtml(harnesses)}</td><td>${escapeHtml(description)}</td></tr>`;
-    })
-    .join("");
+	const rows = Object.entries(inventory.byName)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([name, copies]) => {
+			const description = copies[0]?.description ?? "";
+			const harnesses = [...new Set(copies.map((copy) => copy.location))]
+				.sort((left, right) => left.localeCompare(right))
+				.join(", ");
+			const status = statusOf(copies);
+			let statusClass = "good";
+			if (status === "DRIFT") {
+				statusClass = "bad";
+			} else if (status === "DUP") {
+				statusClass = "warn";
+			}
+			return `<tr><td><code>${escapeHtml(name)}</code></td><td><span class="${statusClass}">${status}</span></td><td>${escapeHtml(harnesses)}</td><td>${escapeHtml(description)}</td></tr>`;
+		})
+		.join("");
 
-  const generatedAt = new Date(inventory.generatedAt).toLocaleString("en-CA", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+	const generatedAt = new Date(inventory.generatedAt).toLocaleString("en-CA", {
+		dateStyle: "medium",
+		timeStyle: "short",
+	});
 
-  return `<!doctype html>
+	return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
