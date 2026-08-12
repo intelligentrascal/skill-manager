@@ -123,13 +123,14 @@ export function hashFile(path: string): string {
 // Find a plausible upstream GitHub repo for a skill by scanning its SKILL.md
 // for github.com/<owner>/<repo> references (install lines, source links).
 export function isRepoCopyClean(repoGitRoot: string, skillPath: string): boolean {
+  const repoRelPath = relative(repoGitRoot, skillPath).replace(/\\/g, "/");
   try {
-    const repoRelPath = relative(repoGitRoot, skillPath).replace(/\\/g, "/");
-    execFileSync("git", ["-C", repoGitRoot, "diff", "--quiet", "HEAD", "--", repoRelPath], {
-      stdio: "ignore",
-      windowsHide: true,
-    });
-    return true;
+    const status = execFileSync(
+      "git",
+      ["-C", repoGitRoot, "status", "--porcelain", "--", repoRelPath],
+      { encoding: "utf-8", windowsHide: true },
+    );
+    return status.length === 0;
   } catch {
     return false;
   }

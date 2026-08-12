@@ -103,12 +103,17 @@ const server = createServer(
 		}
 
 		if (req.method === "GET" && url.pathname === "/api/snapshot") {
-			const inv = getInventory();
-			res.writeHead(200, {
-				"Content-Type": "text/html; charset=utf-8",
-				"Content-Disposition": "attachment; filename=skill-manager-snapshot.html",
-			});
-			res.end(renderSnapshot(inv));
+			try {
+				const snapshot = renderSnapshot(getInventory());
+				res.writeHead(200, {
+					"Content-Type": "text/html; charset=utf-8",
+					"Content-Disposition": "attachment; filename=skill-manager-snapshot.html",
+				});
+				res.end(snapshot);
+			} catch {
+				res.writeHead(500, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Failed to generate snapshot" }));
+			}
 			return;
 		}
 
