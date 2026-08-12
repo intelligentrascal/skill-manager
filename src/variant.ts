@@ -37,7 +37,8 @@ function parseFrontmatterBlock(content: string): {
 	lines: string[];
 	body: string;
 } | null {
-	if (!content.startsWith("---\n") && !content.startsWith("---\r\n")) return null;
+	if (!content.startsWith("---\n") && !content.startsWith("---\r\n"))
+		return null;
 	const end = content.indexOf("\n---");
 	if (end === -1) return null;
 	const raw = content.slice(0, end + 1);
@@ -115,8 +116,7 @@ export function adaptSkill(content: string, target: AgentId): AdaptResult {
 	// what does not carry over structurally
 	carryOver.push(...detectCarryOver(block.body));
 
-	const adapted =
-		"---\n" + kept.join("\n") + "\n---" + block.body;
+	const adapted = "---\n" + kept.join("\n") + "\n---" + block.body;
 	return { content: adapted, removed, added, carryOver };
 }
 
@@ -133,7 +133,8 @@ export function verifyAdaptation(
 	const stillPresent = removed.filter((k) => adaptedFields.includes(k));
 	// pi keeps allowed-tools + disable-model-invocation by design - those are
 	// NOT adaptation failures
-	const allowed = target === "pi" ? ["allowed-tools", "disable-model-invocation"] : [];
+	const allowed =
+		target === "pi" ? ["allowed-tools", "disable-model-invocation"] : [];
 	const failures = stillPresent.filter((k) => !allowed.includes(k));
 	return { ok: failures.length === 0, stillPresent: failures };
 }

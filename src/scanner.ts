@@ -168,7 +168,6 @@ export function repoDirtyPaths(repoGitRoot: string): Set<string> {
 	}
 }
 
-
 export function extractUpstream(content: string): string | undefined {
 	const seen = new Set<string>();
 	const re = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/g;
@@ -287,7 +286,9 @@ export function scanAll(): Inventory {
 	// Compute status per name and repoClean for repo copies
 	const repoGitRoot = repoRoot();
 	const dirtyPaths =
-		repoGitRoot && repoGitRoot.length > 0 ? repoDirtyPaths(repoGitRoot) : new Set<string>();
+		repoGitRoot && repoGitRoot.length > 0
+			? repoDirtyPaths(repoGitRoot)
+			: new Set<string>();
 
 	for (const name of Object.keys(byName)) {
 		const copies = byName[name];

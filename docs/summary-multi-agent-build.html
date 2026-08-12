@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skill Manager - The Multi-Agent Build, Visualized</title>
+<style>
+:root {
+  --bg:#0b0e12; --bg2:#10141a; --card:#141920; --card2:#1a212b;
+  --ink:#e6edf3; --ink2:#9aa8b8; --ink3:#6b7a8c;
+  --line:#232c38; --line2:#33404f;
+  --amber:#e8b44a; --coral:#e26d5a; --good:#3ddc84; --warn:#e5b567; --info:#6db3f2;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+[data-theme="light"] {
+  --bg:#f4f5f7; --bg2:#fff; --card:#fff; --card2:#f0f2f5;
+  --ink:#1a222c; --ink2:#47566a; --ink3:#7c8a9b;
+  --line:#e0e4ea; --line2:#c8d0da;
+  --amber:#a8760f; --coral:#c24534; --good:#1f8f6b; --warn:#a17017; --info:#2f6fb0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:48px 24px 80px}
+#toggle{position:fixed;top:16px;right:20px;z-index:50;border:1px solid var(--line2);border-radius:999px;background:var(--card);color:var(--ink2);font-size:13px;padding:7px 14px;cursor:pointer}
+.hero{padding:36px 0 26px}
+.kicker{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);border:1px solid var(--line2);border-radius:999px;padding:4px 12px;margin-bottom:18px;font-weight:700}
+.hero h1{font-size:clamp(28px,4.5vw,42px);line-height:1.12;letter-spacing:-.02em;font-weight:800;margin-bottom:12px}
+.hero .lede{font-size:clamp(15px,1.8vw,18px);color:var(--ink2);max-width:700px}
+.stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:26px 0 8px}
+.stat{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:14px 16px}
+.stat .n{font:800 26px var(--mono);color:var(--amber);display:block}
+.stat .l{font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+section{padding:30px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(20px,2.6vw,27px);font-weight:800;letter-spacing:-.015em;margin-bottom:16px}
+h2 .n{color:var(--amber);margin-right:8px;font-family:var(--mono)}
+h3{font-size:15px;font-weight:700;margin:18px 0 10px}
+p{color:var(--ink2);font-size:14px;margin-bottom:10px}
+code{font-family:var(--mono);font-size:.86em;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+/* timeline */
+.tl{border-left:2px solid var(--line2);margin:18px 0 0 10px;padding-left:24px}
+.tl-item{position:relative;padding:0 0 22px 0}
+.tl-item::before{content:"";position:absolute;left:-31px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--card2);border:2px solid var(--amber)}
+.tl-item .t{font:700 12px var(--mono);color:var(--ink3);letter-spacing:.05em}
+.tl-item .who{display:inline-block;font:800 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;border-radius:5px;padding:2px 8px;margin:4px 6px 4px 0}
+.tl-item .d{color:var(--ink2);font-size:13.5px}
+.tl-item .rel{display:inline-block;font:800 10px var(--mono);color:var(--good);border:1px solid var(--good);border-radius:999px;padding:1px 8px;margin-left:6px}
+.w-main{background:#33404f22;border:1px solid var(--line2);color:var(--ink)}
+.w-wr{background:#3ddc8422;border:1px solid #3ddc8477;color:var(--good)}
+.w-dr{background:#6db3f222;border:1px solid #6db3f277;color:var(--info)}
+.w-vr{background:#e5b56722;border:1px solid #e5b56777;color:var(--warn)}
+/* agent cards */
+.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.agent{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:16px}
+.agent h3{font:800 14px var(--mono);margin:0 0 4px}
+.agent .role{font-size:12px;color:var(--ink3);margin-bottom:10px}
+.agent ul{list-style:none}
+.agent li{font-size:12.5px;color:var(--ink2);padding:4px 0;border-bottom:1px dashed var(--line)}
+.agent li:last-child{border-bottom:none}
+.agent .err{color:var(--coral);font-weight:700}
+/* review web */
+.web{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:16px 18px;margin:14px 0}
+.web .pair{display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line)}
+.web .pair:last-child{border-bottom:none}
+.web .arrow{color:var(--amber);font-family:var(--mono);font-weight:700}
+.web .from{font:700 12.5px var(--mono)}
+.web .to{font:700 12.5px var(--mono)}
+.web .what{color:var(--ink2);font-size:13px}
+.web .caught{display:inline-block;font:700 11px var(--mono);color:var(--coral);background:#e26d5a22;border:1px solid #e26d5a66;border-radius:5px;padding:1px 7px;margin-left:6px}
+.web .ok{display:inline-block;font:700 11px var(--mono);color:var(--good);background:#3ddc8422;border:1px solid #3ddc8466;border-radius:5px;padding:1px 7px;margin-left:6px}
+/* tally */
+.tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.tally-card{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:16px}
+.tally-card .n{font:800 30px var(--mono)}
+.tally-card .who{font:800 12px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.tally-card .detail{font-size:12px;color:var(--ink3);margin-top:6px}
+.tally-card.top{box-shadow:0 0 0 1px var(--coral),0 0 24px #e26d5a33}
+.tally-card .tag{font:800 9px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--coral)}
+/* releases */
+.rel-rail{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.rel-chip{font:700 12px var(--mono);border:1px solid var(--line2);border-radius:999px;padding:6px 14px;background:var(--card);color:var(--ink2)}
+.rel-chip b{color:var(--amber)}
+footer{padding:26px 0 0;color:var(--ink3);font-size:12px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<button id="toggle" onclick="toggleTheme()">Theme</button>
+<div class="wrap">
+  <div class="hero">
+    <span class="kicker">Post-mortem visual</span>
+    <h1>The Multi-Agent Build, Visualized</h1>
+    <p class="lede">Skill Manager went from concept to v0.6.0 plus a perf fix and a three-track build in one day, orchestrated across three agents. Who did what, when, who waited for whom, who double-checked whose work, and who had the most errors.</p>
+    <div class="stat-strip">
+      <div class="stat"><span class="n">3</span><span class="l">agents</span></div>
+      <div class="stat"><span class="n">20</span><span class="l">commits</span></div>
+      <div class="stat"><span class="n">6</span><span class="l">releases</span></div>
+      <div class="stat"><span class="n">37</span><span class="l">tests green</span></div>
+      <div class="stat"><span class="n">24x</span><span class="l">load speedup</span></div>
+      <div class="stat"><span class="n">10</span><span class="l">errors caught</span></div>
+    </div>
+  </div>
+
+  <section>
+    <h2><span class="n">01</span>The cast</h2>
+    <div class="agents">
+      <div class="agent">
+        <h3>Main</h3>
+        <div class="role">deepseek-v4-flash - orchestrator</div>
+        <ul>
+          <li>Server, knowledge, integration, tests, docs, publishing</li>
+          <li>Perf root-cause + fix (24x)</li>
+          <li>Owned track C: variant adaptation engine</li>
+          <li class="err">Most errors caught (8) - and most code written</li>
+        </ul>
+      </div>
+      <div class="agent">
+        <h3>wR:p1</h3>
+        <div class="role">GPT-5.6 Terra pi - co-builder</div>
+        <ul>
+          <li>Genome Wall UI, Portability view</li>
+          <li>Pi discovery facts, source-validated</li>
+          <li>Owned track A: provenance manifest</li>
+          <li>3 review rounds - caught errors in Main</li>
+        </ul>
+      </div>
+      <div class="agent">
+        <h3>design-review</h3>
+        <div class="role">GPT-5.6 Terra - fresh eyes</div>
+        <ul>
+          <li>README redesign (full pass)</li>
+          <li>Spec grilling: 10 questions</li>
+          <li>Owned track B: update contract + security gate</li>
+          <li>1 error caught (path leak)</li>
+        </ul>
+      </div>
+      <div class="agent">
+        <h3>vision-reviewer</h3>
+        <div class="role">mimo-v2.5 - vision</div>
+        <ul>
+          <li>GIF verification attempt</li>
+          <li class="err">Aborted - the one "stuck" moment</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">02</span>The timeline - who did what, when</h2>
+    <div class="tl">
+      <div class="tl-item"><span class="t">13:11</span><span class="who w-main">main</span><span class="d">Watch mode + sync + crash hardening (collab with wR:p1)</span></div>
+      <div class="tl-item"><span class="t">13:33</span><span class="who w-wr">wR:p1</span><span class="d">Genome Wall + ripple built; main integrated + tested <span class="rel">v0.3.0</span></span></div>
+      <div class="tl-item"><span class="t">13:54</span><span class="who w-main">main</span><span class="d">Visibility + full-text search (fleet upstream badges, matrix, body search) <span class="rel">v0.4.0</span></span></div>
+      <div class="tl-item"><span class="t">14:41</span><span class="who w-main">main</span><span class="d">README features + per-feature screenshots, onboarding</span></div>
+      <div class="tl-item"><span class="t">14:56</span><span class="who w-wr">wR:p1</span><span class="d">Portability frontend; main built the knowledge layer <span class="rel">v0.5.0</span> - review caught 2 profile errors in main's pi model</span></div>
+      <div class="tl-item"><span class="t">15:16</span><span class="who w-main">main</span><span class="d">Ripple visibility fix (user caught the invisible animation)</span></div>
+      <div class="tl-item"><span class="t">18:44</span><span class="who w-wr">wR:p1</span><span class="d">Pi discovery facts (source-validated); main built explain engine <span class="rel">v0.6.0</span> - final review caught precedence overclaim + trust gap</span></div>
+      <div class="tl-item"><span class="t">18:54</span><span class="who w-main">main</span><span class="d">Security audit + machine-path redaction</span></div>
+      <div class="tl-item"><span class="t">19:12</span><span class="who w-dr">design-review</span><span class="d">README redesign (built); wR:p1 double-checked; main QA caught path leak re-introduced</span></div>
+      <div class="tl-item"><span class="t">21:29</span><span class="who w-main">main</span><span class="d">Upstream spec v0.2 (drafted); design-review grilled it - 10 questions converged</span></div>
+      <div class="tl-item"><span class="t">22:16</span><span class="who w-main">main</span><span class="d">Variant-aware duplicate categorization (4c)</span></div>
+      <div class="tl-item"><span class="t">22:41</span><span class="who w-main">main</span><span class="d">Spec 9+10: performance investigation + UI/UX final phase</span></div>
+      <div class="tl-item"><span class="t">22:44</span><span class="who w-main">main</span><span class="d">Perf fix: 223 git spawns -&gt; 1 batch call. Cold load 13.9s -&gt; 0.57s (24x)</span></div>
+      <div class="tl-item"><span class="t">22:47</span><span class="who w-main">main</span><span class="d">Track C: variant adaptation engine (8 tests)</span></div>
+      <div class="tl-item"><span class="t">22:53</span><span class="who w-wr">wR:p1</span><span class="who w-dr">design-review</span><span class="d">Tracks A + B landed (manifest + update contract) - 37 tests green</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">03</span>Who waited for whom</h2>
+    <div class="web">
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="what">waited on wR:p1 for: genome wall build, pi discovery facts, two review rounds. The 15:16 ripple fix waited on the user catching the bug.</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="what">waited on design-review for: README redesign, upstream-spec grilling, track B contract.</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="what">waited on vision-reviewer for the GIF check - it aborted, main stalled ("you got stuck again"), then shipped on programmatic evidence.</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="what">worked in parallel; its session was compacted 80% -&gt; 35% mid-build so it could keep going.</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">design-review</span><span class="what">fresh agent, never waited; its only gate was "define B's contract before C integrates".</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">04</span>The review web - who double-checked whom</h2>
+    <div class="web">
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="to">main</span><span class="what">API shape review, round 1</span><span class="caught">caught: pi honors allowed-tools + disable-model-invocation (main had them wrong)</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="to">main</span><span class="what">Final review, round 3</span><span class="caught">caught: precedence overclaim + trust-gated kinds gap</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="to">design-review</span><span class="what">README accuracy check</span><span class="caught">caught: "one click to heal" overpromise + precedence claim in explain copy</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="to">design-review</span><span class="what">README QA</span><span class="caught">caught: machine path re-introduced (privacy)</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">design-review</span><span class="to">main</span><span class="what">Upstream spec grilling</span><span class="ok">10 questions - identity, fetch granularity, variant storage, security gate</span></div>
+      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="to">design-review</span><span class="what">Variant code review</span><span class="caught">caught: codex rule contradicted compat profile</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">05</span>The error tally</h2>
+    <div class="tally">
+      <div class="tally-card top">
+        <span class="tag">most errors</span>
+        <span class="n" style="color:var(--coral)">8</span>
+        <div class="who">main</div>
+        <div class="detail">pi profile errors x2, precedence overclaim, trust gap, HOME path bug x2, missing home param, windows path separator, codex test inconsistency. Most errors, most code, and the most caught by review.</div>
+      </div>
+      <div class="tally-card">
+        <span class="n" style="color:var(--warn)">1</span>
+        <div class="who">design-review</div>
+        <div class="detail">Machine path leak re-introduced in the README redesign - caught by main's QA before publish.</div>
+      </div>
+      <div class="tally-card">
+        <span class="n" style="color:var(--good)">0</span>
+        <div class="who">wR:p1</div>
+        <div class="detail">Zero errors caught in its output. It caught errors in others - the reviewer agent did its job.</div>
+      </div>
+      <div class="tally-card">
+        <span class="n" style="color:var(--warn)">1</span>
+        <div class="who">vision-reviewer</div>
+        <div class="detail">Aborted the GIF check - the single process failure of the day, which caused the one stall.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">06</span>The release rail</h2>
+    <div class="rel-rail">
+      <div class="rel-chip"><b>v0.2.1</b> base</div>
+      <div class="rel-chip"><b>v0.3.0</b> Skill Genome</div>
+      <div class="rel-chip"><b>v0.4.0</b> Visibility + Search</div>
+      <div class="rel-chip"><b>v0.5.0</b> Portability</div>
+      <div class="rel-chip"><b>v0.6.0</b> Explain + Suggestions</div>
+      <div class="rel-chip"><b>next</b> A+B+C tracks</div>
+      <div class="rel-chip"><b>last</b> UI/UX redesign (D)</div>
+    </div>
+    <p style="margin-top:16px">Every release shipped with: typecheck clean, tests green, docs updated (README + onboarding + BUILD-SPEC), and screenshots captured. The review loop was the safety net: 10 real errors caught before they shipped.</p>
+  </section>
+
+  <footer>Skill Manager collaboration summary - generated 2026-08-12. Agents: main (deepseek-v4-flash), wR:p1 + design-review (GPT-5.6 Terra), vision-reviewer (mimo-v2.5).</footer>
+</div>
+<script>
+function toggleTheme() {
+  const d = document.documentElement;
+  const next = d.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  d.setAttribute("data-theme", next);
+  try { localStorage.setItem("sm-summary-theme", next); } catch {}
+}
+try {
+  const s = localStorage.getItem("sm-summary-theme");
+  if (s) document.documentElement.setAttribute("data-theme", s);
+} catch {}
+</script>
+</body>
+</html>
