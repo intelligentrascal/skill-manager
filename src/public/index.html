@@ -600,24 +600,25 @@
       .genome-track.pulse::before {
         position: absolute;
         z-index: -1;
-        inset: -10px -12px;
-        border: 1px solid var(--mutation);
-        border-radius: 7px;
+        inset: -12px -14px;
+        border: 2px solid var(--mutation);
+        border-radius: 8px;
+        box-shadow: 0 0 16px var(--mutation-glow);
         content: "";
-        animation: genome-ripple 800ms ease-out both;
+        animation: genome-ripple 950ms ease-out both;
         pointer-events: none;
       }
       @keyframes genome-ripple {
         0% {
           opacity: 0;
-          transform: scaleX(0.86);
+          transform: scaleX(0.84);
         }
-        28% {
-          opacity: 0.85;
+        30% {
+          opacity: 1;
         }
         100% {
           opacity: 0;
-          transform: scaleX(1.08);
+          transform: scaleX(1.12);
         }
       }
       .rows {
