@@ -89,3 +89,41 @@ a <pre id="out"> and a script that fetches /api/inventory and sets textContent.
 
 Test your work: run `npm run scan` and verify the output has real skills (e.g. names like
 hallmark, agent-reach, headstart, grill-me should appear). Fix until it works.
+
+
+## Compatibility engine (v1.1.0, added 2026-08-12)
+
+Knowledge-first portability: what each agent runtime actually does with a
+skill's frontmatter, grounded in documentation + the pi source, NOT heuristic
+guessing.
+
+- `src/compat.ts` - the knowledge base + pure report function.
+  - `AGENT_PROFILES`: per-agent profile for pi / claude / codex / opencode.
+    Each has honors / ignores / breaks / silent / requires / notes /
+    confidence (`documented` | `inferred`).
+  - Severity model (deliberately conservative):
+    - `honors` - fields the agent acts on.
+    - `ignores` - BEHAVIORAL fields silently ignored (intent lost) -> warn,
+      with evidence + remediation.
+    - `silent` - informational metadata (author, license...) - never flagged.
+    - `requires` - fields that must be present (missing description = skill
+      not loaded on pi).
+    - unknown/custom fields -> surfaced as `customFields`, distinct from ok,
+      but never a status change (no false authority).
+  - `PROFILE_VERSION` - bump when profiles change.
+- `GET /api/compat` - server endpoint. Response shape:
+  - `profileVersion`, `generatedAt`
+  - `skills[]`: `{ name, agents: { pi|claude|codex|opencode: { status,
+    issues: [{field, severity, evidence, note, remediation}], customFields } } }`
+  - `summary`: `byAgent` counts, `byIssueCode` aggregation (agent + field +
+    severity + count), `anyIssue`, `skillsWithIssues`, `unknownFieldCount`
+- Scanner captures every frontmatter key per copy (`fields: string[]`,
+  filtered to real keys - single-word, no prose spillover).
+- Verified pi semantics (2026-08-12): pi honors `allowed-tools`
+  (experimental) and `disable-model-invocation` (hidden from auto-discovery,
+  `/skill:name` retains access); missing `description` = skill not loaded.
+- Fleet result (this machine): 258 skills, pi/codex/opencode 182 ok / 76
+  warn, claude 258 ok. Top issue: `argument-hint` ignored by
+  pi/codex/opencode (68 skills).
+- Phase 2 (not built): runtime probes to verify `inferred` profiles
+  (codex, opencode) and upgrade confidence.

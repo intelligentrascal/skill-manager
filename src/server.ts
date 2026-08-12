@@ -8,6 +8,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scanAll } from "./scanner.ts";
 import { checkUpstream } from "./upstream.ts";
+import { compatReport } from "./compat.ts";
 import { buildHealthActions } from "./health.ts";
 import { renderSnapshot } from "./snapshot.ts";
 import { previewSyncFromRepo, SyncError, syncFromRepo } from "./sync.ts";
@@ -382,6 +383,16 @@ const server = createServer(
 			results.sort((a, b) => a.name.localeCompare(b.name));
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ query: q, count: results.length, results }));
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/compat") {
+			// Portability report: skill x agent status derived from the knowledge
+			// base in compat.ts (pure function over the inventory's frontmatter fields).
+			const inv = getInventory();
+			const report = compatReport(inv.byName);
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify(report));
 			return;
 		}
 

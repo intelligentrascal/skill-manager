@@ -476,6 +476,74 @@
       .matrix .m-signal.duplicate {
         color: var(--warn);
       }
+      .portability-cell {
+        min-width: 66px;
+        cursor: help;
+        font: 800 10px var(--mono);
+        letter-spacing: 0.06em;
+        text-align: center;
+      }
+      .portability-cell.ok {
+        color: var(--good);
+      }
+      .portability-cell.warn {
+        color: var(--warn);
+      }
+      .portability-cell.incompatible {
+        color: var(--mutation);
+      }
+      .portability {
+        margin: 18px 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .portability h3 {
+        padding: 10px 12px;
+        background: var(--card);
+        border-bottom: 1px solid var(--line);
+        font: 700 11px var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .portability-agent {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .portability-agent:last-child {
+        border-bottom: 0;
+      }
+      .portability-agent strong {
+        display: inline-block;
+        min-width: 80px;
+        font: 700 11px var(--mono);
+        text-transform: uppercase;
+      }
+      .portability-agent .status {
+        font: 800 10px var(--mono);
+        letter-spacing: 0.06em;
+      }
+      .portability-agent .status.ok {
+        color: var(--good);
+      }
+      .portability-agent .status.warn {
+        color: var(--warn);
+      }
+      .portability-agent .status.incompatible {
+        color: var(--mutation);
+      }
+      .portability-issue {
+        margin: 7px 0 0 80px;
+        color: var(--ink2);
+        font-size: 11px;
+      }
+      .portability-issue code {
+        color: var(--ink);
+        font: 10px var(--mono);
+      }
+      .portability-issue small {
+        color: var(--ink3);
+      }
       .body-results {
         margin-top: 14px;
         border: 1px solid var(--line);
@@ -871,6 +939,9 @@
           <button id="matrixViewBtn" type="button" aria-pressed="false">
             Matrix
           </button>
+          <button id="portabilityViewBtn" type="button" aria-pressed="false">
+            Portability
+          </button>
           <button id="listViewBtn" type="button" aria-pressed="false">
             List
           </button>
@@ -899,6 +970,18 @@
         </thead>
         <tbody></tbody>
       </table>
+      <table class="matrix" id="portabilityMatrix" hidden>
+        <thead>
+          <tr>
+            <th>Skill</th>
+            <th>pi</th>
+            <th>claude</th>
+            <th>codex</th>
+            <th>opencode</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
       <div class="rows" id="rows" hidden></div>
       <footer id="foot"></footer>
     </div>
@@ -921,6 +1004,8 @@
       let view = "genome";
       let pulseNames = new Set();
       let upstreamResults = {}; // name -> { stale, error } from /api/upstream-batch
+      let COMPAT = null;
+      const COMPAT_AGENTS = ["pi", "claude", "codex", "opencode"];
       const HARNESSES = ["pi", "opencode", "claude", "shared", "repo"];
 
       function el(tag, cls, text) {
@@ -947,12 +1032,15 @@
 
       async function load({ pulse = false } = {}) {
         const previous = inventorySignatures(DATA);
-        const [inventoryResponse, actionsResponse] = await Promise.all([
-          fetch("/api/inventory"),
-          fetch("/api/actions"),
-        ]);
+        const [inventoryResponse, actionsResponse, compatResponse] =
+          await Promise.all([
+            fetch("/api/inventory"),
+            fetch("/api/actions"),
+            fetch("/api/compat"),
+          ]);
         DATA = await inventoryResponse.json();
         ACTIONS = (await actionsResponse.json()).actions || [];
+        COMPAT = compatResponse.ok ? await compatResponse.json() : null;
         pulseNames = new Set();
         if (pulse) {
           const next = inventorySignatures(DATA);
@@ -1109,12 +1197,17 @@
         document.getElementById("genomeWall").hidden = view !== "genome";
         document.getElementById("rows").hidden = view !== "list";
         document.getElementById("matrix").hidden = view !== "matrix";
+        document.getElementById("portabilityMatrix").hidden =
+          view !== "portability";
         document
           .getElementById("genomeViewBtn")
           .setAttribute("aria-pressed", String(view === "genome"));
         document
           .getElementById("matrixViewBtn")
           .setAttribute("aria-pressed", String(view === "matrix"));
+        document
+          .getElementById("portabilityViewBtn")
+          .setAttribute("aria-pressed", String(view === "portability"));
         document
           .getElementById("listViewBtn")
           .setAttribute("aria-pressed", String(view === "list"));
@@ -1160,6 +1253,56 @@
             st === "drift" ? "DRIFT" : st === "duplicate" ? "DUP" : "OK",
           );
           tr.appendChild(signal);
+          tr.addEventListener("click", () => openSkill(name));
+          tbody.appendChild(tr);
+        }
+      }
+
+      function compatibilityFor(name) {
+        return (
+          COMPAT?.skills?.find((skill) => skill.name === name)?.agents || null
+        );
+      }
+
+      function issueSummary(agent) {
+        if (!agent?.issues?.length) return "No compatibility issues.";
+        return agent.issues.map((issue) => issue.note).join(" ");
+      }
+
+      function renderPortabilityMatrix() {
+        const tbody = document
+          .getElementById("portabilityMatrix")
+          .querySelector("tbody");
+        tbody.textContent = "";
+        for (const name of visibleNames()) {
+          const copies = DATA.byName[name];
+          const agents = compatibilityFor(name);
+          const tr = document.createElement("tr");
+          const nameTd = document.createElement("td");
+          const nameCell = el("div", "m-name", name);
+          nameCell.appendChild(
+            el(
+              "small",
+              "",
+              (copies[0].description || "uncategorized").slice(0, 60),
+            ),
+          );
+          nameTd.appendChild(nameCell);
+          tr.appendChild(nameTd);
+          for (const runtime of COMPAT_AGENTS) {
+            const agent = agents?.[runtime];
+            const cell = el(
+              "td",
+              "portability-cell " + (agent?.status || "warn"),
+              agent?.status === "incompatible"
+                ? "BLOCK"
+                : agent?.status === "warn"
+                  ? "WARN"
+                  : "OK",
+            );
+            cell.title = issueSummary(agent);
+            tr.appendChild(cell);
+          }
           tr.addEventListener("click", () => openSkill(name));
           tbody.appendChild(tr);
         }
@@ -1224,6 +1367,14 @@
           renderMatrix();
           document.getElementById("foot").textContent =
             names.length + " skills";
+          return;
+        }
+        if (view === "portability") {
+          renderPortabilityMatrix();
+          document.getElementById("foot").textContent =
+            names.length +
+            " skills · compatibility profile " +
+            (COMPAT?.profileVersion || "unavailable");
           return;
         }
         if (!names.length) {
@@ -1348,6 +1499,53 @@
         }
         body.appendChild(meta1);
         body.appendChild(copiesWrap);
+        const portability = compatibilityFor(name);
+        if (portability) {
+          const section = el("section", "portability");
+          section.appendChild(
+            el(
+              "h3",
+              "",
+              "Portability · profile " + (COMPAT?.profileVersion || "unknown"),
+            ),
+          );
+          for (const runtime of COMPAT_AGENTS) {
+            const agent = portability[runtime];
+            const row = el("div", "portability-agent");
+            row.appendChild(el("strong", "", runtime));
+            row.appendChild(
+              el("span", "status " + agent.status, agent.status.toUpperCase()),
+            );
+            for (const issue of agent.issues || []) {
+              const detail = el("div", "portability-issue");
+              detail.appendChild(el("code", "", issue.field));
+              detail.appendChild(
+                document.createTextNode(" · " + issue.note + " "),
+              );
+              detail.appendChild(
+                el(
+                  "small",
+                  "",
+                  "[" + issue.severity + " · " + issue.evidence + "]",
+                ),
+              );
+              if (issue.remediation)
+                detail.appendChild(el("small", "", " " + issue.remediation));
+              row.appendChild(detail);
+            }
+            if (agent.customFields?.length) {
+              row.appendChild(
+                el(
+                  "div",
+                  "portability-issue",
+                  "Custom fields: " + agent.customFields.join(", "),
+                ),
+              );
+            }
+            section.appendChild(row);
+          }
+          body.appendChild(section);
+        }
         const desc = d.copies[0].description;
         if (desc) body.appendChild(el("div", "meta", "What it does: " + desc));
         const tags = d.copies[0].tags;
@@ -1575,6 +1773,9 @@
       document
         .getElementById("matrixViewBtn")
         .addEventListener("click", () => setView("matrix"));
+      document
+        .getElementById("portabilityViewBtn")
+        .addEventListener("click", () => setView("portability"));
       let searchTimer = null;
       document.getElementById("q").addEventListener("input", (e) => {
         q = e.target.value.trim().toLowerCase();

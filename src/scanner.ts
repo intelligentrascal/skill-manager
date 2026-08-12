@@ -28,6 +28,7 @@ interface SkillRecord {
 	mtimeISO: string;
 	nested: boolean;
 	repoClean?: boolean;
+	fields: string[];
 }
 
 interface LocationSummary {
@@ -211,6 +212,11 @@ export function scanAll(): Inventory {
 			const model = String(frontmatter["model"] ?? "");
 			const license = String(frontmatter["license"] ?? "");
 			const version = String(frontmatter["version"] ?? "");
+			// keep only real frontmatter keys (single-word); multi-line prose spillover
+			// gets captured as junk keys by the line parser and is not a real field
+			const fields = Object.keys(frontmatter).filter((k) =>
+				/^[a-zA-Z][a-zA-Z0-9-]*$/.test(k),
+			);
 
 			const record: SkillRecord = {
 				name: sf.name,
@@ -227,6 +233,7 @@ export function scanAll(): Inventory {
 				mtimeISO,
 				nested,
 				repoClean: undefined,
+				fields,
 			};
 
 			allRecords.push(record);
