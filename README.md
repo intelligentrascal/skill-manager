@@ -47,6 +47,9 @@ Open the URL. That's it.
 - **Specimen tray** - click any genome to expand: the exact diff, the repo source, the affected copies, and one-click healing (preview, then confirm).
 - **Mutation queue** - every drift / uncommitted-repo skill as an actionable list.
 - **Watch mode** - live re-scan + SSE; changed genome strips ripple once, then settle.
+- **Fleet upstream checks** - one button checks every upstream-declaring skill; STALE badges land on the genome rows themselves.
+- **Matrix view** - the whole estate as a dense skill x harness table with status colors (Genome | Matrix | List).
+- **Full-text search** - search across SKILL.md bodies too: "which skills mention playwright?" gets a literal answer with highlighted snippets.
 - **Full inventory** - scans 5 locations, parses frontmatter, builds one view
 - **Status model** per skill name:
   - `OK` - a single copy, or multiple identical copies

@@ -375,6 +375,160 @@
       .genome-signal.duplicate {
         color: var(--warn);
       }
+      .genome-up {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        margin-left: 6px;
+        padding: 1px 5px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        color: var(--ink3);
+        font: 700 8.5px var(--mono);
+        letter-spacing: 0.05em;
+        vertical-align: 2px;
+      }
+      .genome-up.ok {
+        border-color: color-mix(in srgb, var(--good) 40%, transparent);
+        color: var(--good);
+      }
+      .genome-up.stale {
+        border-color: var(--mutation);
+        color: var(--mutation);
+        box-shadow: 0 0 8px color-mix(in srgb, var(--mutation) 45%, transparent);
+      }
+      .genome-up.unknown {
+        opacity: 0.55;
+      }
+      .genome-up:hover {
+        filter: brightness(1.25);
+      }
+      .matrix {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        border-collapse: collapse;
+        background: var(--bg2);
+        font: 12px/1.45 var(--mono);
+      }
+      .matrix th {
+        padding: 9px 10px;
+        color: var(--ink3);
+        font-size: 9px;
+        letter-spacing: 0.09em;
+        text-align: left;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--line);
+        background: var(--card);
+      }
+      .matrix td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: middle;
+      }
+      .matrix tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      .matrix tbody tr {
+        cursor: pointer;
+        transition: background 140ms ease;
+      }
+      .matrix tbody tr:hover {
+        background: var(--card);
+      }
+      .matrix .m-name {
+        overflow: hidden;
+        color: var(--ink);
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .matrix .m-name small {
+        display: block;
+        overflow: hidden;
+        color: var(--ink3);
+        font-size: 10px;
+        font-weight: 400;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .matrix .m-cell {
+        color: var(--ink3);
+        font-size: 12px;
+        text-align: center;
+      }
+      .matrix .m-cell.present {
+        color: var(--genome-fill);
+      }
+      .matrix .m-cell.mutated {
+        color: var(--mutation);
+        text-shadow: 0 0 9px var(--mutation-glow);
+      }
+      .matrix .m-signal {
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.07em;
+      }
+      .matrix .m-signal.drift {
+        color: var(--mutation);
+      }
+      .matrix .m-signal.duplicate {
+        color: var(--warn);
+      }
+      .body-results {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--bg2);
+      }
+      .body-results .br-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink3);
+        background: var(--card);
+        font: 800 10px var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .body-results .br-item {
+        display: block;
+        width: 100%;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--line);
+        background: none;
+        color: var(--ink);
+        cursor: pointer;
+        text-align: left;
+        transition: background 140ms ease;
+      }
+      .body-results .br-item:last-child {
+        border-bottom: 0;
+      }
+      .body-results .br-item:hover {
+        background: var(--card);
+      }
+      .body-results .br-item strong {
+        font: 700 12px var(--mono);
+      }
+      .body-results .br-item em {
+        color: var(--accent);
+        font-style: normal;
+      }
+      .body-results .br-item small {
+        display: block;
+        margin-top: 3px;
+        overflow: hidden;
+        color: var(--ink3);
+        font: 10.5px/1.5 var(--mono);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .genome-track.pulse::before {
         position: absolute;
         z-index: -1;
@@ -698,12 +852,13 @@
         <span class="sp"></span>
         <button id="refreshBtn">Re-scan</button>
         <button id="exportBtn">Export snapshot</button>
+        <button id="upstreamBtn">Check upstreams</button>
         <button id="themeBtn">Theme</button>
       </div>
       <div class="stats" id="stats"></div>
       <section class="health" aria-labelledby="healthTitle">
         <div class="health-head">
-          <h2 id="healthTitle">Attention queue</h2>
+          <h2 id="healthTitle">Mutation queue</h2>
           <span id="healthMeta"></span>
         </div>
         <div id="healthItems"></div>
@@ -713,15 +868,33 @@
           <button id="genomeViewBtn" type="button" aria-pressed="true">
             Genome
           </button>
+          <button id="matrixViewBtn" type="button" aria-pressed="false">
+            Matrix
+          </button>
           <button id="listViewBtn" type="button" aria-pressed="false">
             List
           </button>
         </div>
-        <input id="q" placeholder="search skills..." autocomplete="off" />
+        <input id="q" placeholder="search skills + skill text..." autocomplete="off" />
         <div class="chips" id="harnessChips"></div>
         <div class="chips" id="statusChips"></div>
       </div>
+      <div id="bodyResults" class="body-results" hidden></div>
       <div class="genome-wall" id="genomeWall"></div>
+      <table class="matrix" id="matrix" hidden>
+        <thead>
+          <tr>
+            <th>Skill</th>
+            <th>pi</th>
+            <th>opencode</th>
+            <th>claude</th>
+            <th>shared</th>
+            <th>repo</th>
+            <th>status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
       <div class="rows" id="rows" hidden></div>
       <footer id="foot"></footer>
     </div>
@@ -743,6 +916,7 @@
       let status = "all";
       let view = "genome";
       let pulseNames = new Set();
+      let upstreamResults = {}; // name -> { stale, error } from /api/upstream-batch
       const HARNESSES = ["pi", "opencode", "claude", "shared", "repo"];
 
       function el(tag, cls, text) {
@@ -930,13 +1104,63 @@
         view = nextView;
         document.getElementById("genomeWall").hidden = view !== "genome";
         document.getElementById("rows").hidden = view !== "list";
+        document.getElementById("matrix").hidden = view !== "matrix";
         document
           .getElementById("genomeViewBtn")
           .setAttribute("aria-pressed", String(view === "genome"));
         document
+          .getElementById("matrixViewBtn")
+          .setAttribute("aria-pressed", String(view === "matrix"));
+        document
           .getElementById("listViewBtn")
           .setAttribute("aria-pressed", String(view === "list"));
         render();
+      }
+
+      function renderMatrix() {
+        const tbody = document
+          .getElementById("matrix")
+          .querySelector("tbody");
+        tbody.textContent = "";
+        for (const name of visibleNames()) {
+          const copies = DATA.byName[name];
+          const source =
+            copies.find((copy) => copy.location === "repo") || copies[0];
+          const st = statusOf(name);
+          const tr = document.createElement("tr");
+          const nameTd = document.createElement("td");
+          const nameCell = el("div", "m-name", name);
+          nameCell.appendChild(
+            el(
+              "small",
+              "",
+              (copies[0].description || "uncategorized").slice(0, 60),
+            ),
+          );
+          nameTd.appendChild(nameCell);
+          tr.appendChild(nameTd);
+          for (const location of HARNESSES) {
+            const copy = copies.find((item) => item.location === location);
+            const cell = el("td", "m-cell");
+            if (copy) {
+              cell.classList.add(
+                copy.sha === source.sha ? "present" : "mutated",
+              );
+              cell.textContent = copy.sha === source.sha ? "\u25cf" : "\u25d0";
+            } else {
+              cell.textContent = "\u00b7";
+            }
+            tr.appendChild(cell);
+          }
+          const signal = el(
+            "td",
+            "m-signal " + st,
+            st === "drift" ? "DRIFT" : st === "duplicate" ? "DUP" : "OK",
+          );
+          tr.appendChild(signal);
+          tr.addEventListener("click", () => openSkill(name));
+          tbody.appendChild(tr);
+        }
       }
 
       function renderGenomeRow(name, copies) {
@@ -955,6 +1179,26 @@
             (copies[0].description || "uncategorized").slice(0, 72),
           ),
         );
+        // upstream chip: ↗ marker when the skill declares an upstream source;
+        // turns STALE (coral) / OK after the fleet check runs
+        const up = copies[0].upstream;
+        if (up) {
+          const u = upstreamResults[name];
+          const chip = el(
+            "span",
+            "genome-up" +
+              (u ? (u.stale ? " stale" : u.error ? " unknown" : " ok") : ""),
+            u
+              ? u.stale
+                ? "STALE"
+                : u.error
+                  ? "?"
+                  : "OK"
+              : "\u2197",
+          );
+          chip.title = "upstream: " + up;
+          label.querySelector("strong").appendChild(chip);
+        }
         const track = el("span", "genome-track");
         for (const location of HARNESSES) {
           const copy = copies.find((item) => item.location === location);
@@ -980,6 +1224,12 @@
         const names = visibleNames();
         rows.textContent = "";
         wall.textContent = "";
+        if (view === "matrix") {
+          renderMatrix();
+          document.getElementById("foot").textContent =
+            names.length + " skills";
+          return;
+        }
         if (!names.length) {
           const empty = el("div", "empty", "NO SKILLS MATCH");
           (view === "genome" ? wall : rows).appendChild(empty);
@@ -1326,10 +1576,89 @@
       document
         .getElementById("listViewBtn")
         .addEventListener("click", () => setView("list"));
+      document
+        .getElementById("matrixViewBtn")
+        .addEventListener("click", () => setView("matrix"));
+      let searchTimer = null;
       document.getElementById("q").addEventListener("input", (e) => {
         q = e.target.value.trim().toLowerCase();
         render();
+        // debounced literal full-text search over SKILL.md bodies
+        clearTimeout(searchTimer);
+        const wrap = document.getElementById("bodyResults");
+        wrap.hidden = true;
+        if (!q) return;
+        searchTimer = setTimeout(async () => {
+          try {
+            const r = await fetch(
+              "/api/search?q=" + encodeURIComponent(q),
+            );
+            const d = await r.json();
+            const list = (d.results || []).filter(
+              (res) =>
+                !visibleNames().includes(res.name) ||
+                !res.name.toLowerCase().includes(q),
+            );
+            wrap.textContent = "";
+            if (!list.length) {
+              wrap.hidden = true;
+              return;
+            }
+            const head = el("div", "br-head");
+            head.appendChild(el("span", "", "In skill text"));
+            head.appendChild(el("span", "", list.length + " matches"));
+            wrap.appendChild(head);
+            for (const res of list.slice(0, 25)) {
+              const item = el("button", "br-item");
+              const title = el("strong", "", res.name);
+              // highlight the query inside the snippet
+              const re = new RegExp("(" + escapeRegExp(q) + ")", "gi");
+              const snip = el("small", "");
+              const parts = res.snippet.split(re);
+              for (const part of parts) {
+                if (part.toLowerCase() === q)
+                  snip.appendChild(el("em", "", part));
+                else snip.appendChild(document.createTextNode(part));
+              }
+              item.appendChild(title);
+              item.appendChild(snip);
+              item.addEventListener("click", () => openSkill(res.name));
+              wrap.appendChild(item);
+            }
+            wrap.hidden = false;
+          } catch {
+            wrap.hidden = true;
+          }
+        }, 350);
       });
+      document
+        .getElementById("upstreamBtn")
+        .addEventListener("click", async () => {
+          const button = document.getElementById("upstreamBtn");
+          button.disabled = true;
+          button.textContent = "Checking...";
+          try {
+            const r = await fetch("/api/upstream-batch");
+            const d = await r.json();
+            upstreamResults = d.results || {};
+            const staleCount = Object.values(upstreamResults).filter(
+              (u) => u.stale,
+            ).length;
+            button.textContent = staleCount
+              ? staleCount + " stale"
+              : "Up to date";
+            render();
+          } catch {
+            button.textContent = "Check failed";
+          } finally {
+            setTimeout(() => {
+              button.disabled = false;
+            }, 500);
+          }
+        });
+      function escapeRegExp(text) {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
       document
         .getElementById("refreshBtn")
         .addEventListener("click", async () => {

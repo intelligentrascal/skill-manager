@@ -32,6 +32,26 @@ const CACHE_TTL = 60_000;
 // SSE clients waiting for inventory-updated events
 const sseClients = new Set<ServerResponse>();
 
+// Body index for /api/search: name -> SKILL.md raw text, cached 60s.
+let bodyCache: { at: number; bodies: Map<string, string> } | null = null;
+
+async function skillBodies(
+	inv: ReturnType<typeof scanAll>,
+): Promise<Map<string, string>> {
+	if (bodyCache && Date.now() - bodyCache.at < 60_000) return bodyCache.bodies;
+	const bodies = new Map<string, string>();
+	for (const [name, copies] of Object.entries(inv.byName)) {
+		if (!copies || copies.length === 0) continue;
+		try {
+			bodies.set(name, readFileSync(copies[0].path, "utf8"));
+		} catch {
+			// unreadable skill - skip, the name itself still matches in /api/search
+		}
+	}
+	bodyCache = { at: Date.now(), bodies };
+	return bodies;
+}
+
 function broadcastInventoryUpdated(): void {
 	const payload = `event: inventory\ndata: {"type":"inventory-updated"}\n\n`;
 	for (const res of sseClients) {
@@ -273,6 +293,95 @@ const server = createServer(
 			const result = await checkUpstream(name, upstream, localSha);
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ name, upstream, ...result }));
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/upstream-batch") {
+			// Check every skill that declares an upstream. Uses the shared 1h cache
+			// from upstream.ts, so repeated runs are cheap. Bounded concurrency.
+			const inv = getInventory();
+			const entries: { name: string; upstream: string; sha: string }[] = [];
+			for (const [name, copies] of Object.entries(inv.byName)) {
+				const upstream = copies[0].upstream;
+				if (!upstream) continue;
+				entries.push({ name, upstream, sha: copies[0].sha });
+			}
+			const results: Record<
+				string,
+				{ upstream: string; stale: boolean; error?: string }
+			> = {};
+			const CONCURRENCY = 4;
+			let cursor = 0;
+			async function worker(): Promise<void> {
+				while (cursor < entries.length) {
+					const entry = entries[cursor++];
+					const r = await checkUpstream(entry.name, entry.upstream, entry.sha);
+					results[entry.name] = {
+						upstream: entry.upstream,
+						stale: !!r.stale,
+						error: r.error,
+					};
+				}
+			}
+			await Promise.all(
+				Array.from({ length: Math.min(CONCURRENCY, entries.length) }, () =>
+					worker(),
+				),
+			);
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(
+				JSON.stringify({
+					checked: Object.keys(results).length,
+					stale: Object.values(results).filter((r) => r.stale).length,
+					results,
+				}),
+			);
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/search") {
+			// Literal full-text search across SKILL.md bodies. Local and instant -
+			// no embeddings. Index is cached briefly so repeated searches are fast.
+			const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+			if (!q) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing ?q parameter" }));
+				return;
+			}
+			const inv = getInventory();
+			const bodies = await skillBodies(inv);
+			const results: {
+				name: string;
+				description: string;
+				locations: string[];
+				snippet: string;
+			}[] = [];
+			for (const [name, text] of bodies) {
+				const copies = inv.byName[name];
+				if (!copies || copies.length === 0) continue;
+				const lower = text.toLowerCase();
+				const desc = (copies[0].description || "").toLowerCase();
+				const inName = name.toLowerCase().includes(q);
+				const inDesc = desc.includes(q);
+				const inBody = lower.includes(q);
+				if (!inName && !inDesc && !inBody) continue;
+				const idx = inBody ? lower.indexOf(q) : 0;
+				const start = Math.max(0, idx - 60);
+				const end = Math.min(text.length, idx + q.length + 90);
+				const snippet =
+					(start > 0 ? "..." : "") +
+					text.slice(start, end).replace(/\s+/g, " ").trim() +
+					(end < text.length ? "..." : "");
+				results.push({
+					name,
+					description: copies[0].description || "",
+					locations: copies.map((c) => c.location),
+					snippet,
+				});
+			}
+			results.sort((a, b) => a.name.localeCompare(b.name));
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ query: q, count: results.length, results }));
 			return;
 		}
 
