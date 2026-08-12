@@ -875,7 +875,11 @@
             List
           </button>
         </div>
-        <input id="q" placeholder="search skills + skill text..." autocomplete="off" />
+        <input
+          id="q"
+          placeholder="search skills + skill text..."
+          autocomplete="off"
+        />
         <div class="chips" id="harnessChips"></div>
         <div class="chips" id="statusChips"></div>
       </div>
@@ -1118,9 +1122,7 @@
       }
 
       function renderMatrix() {
-        const tbody = document
-          .getElementById("matrix")
-          .querySelector("tbody");
+        const tbody = document.getElementById("matrix").querySelector("tbody");
         tbody.textContent = "";
         for (const name of visibleNames()) {
           const copies = DATA.byName[name];
@@ -1188,13 +1190,7 @@
             "span",
             "genome-up" +
               (u ? (u.stale ? " stale" : u.error ? " unknown" : " ok") : ""),
-            u
-              ? u.stale
-                ? "STALE"
-                : u.error
-                  ? "?"
-                  : "OK"
-              : "\u2197",
+            u ? (u.stale ? "STALE" : u.error ? "?" : "OK") : "\u2197",
           );
           chip.title = "upstream: " + up;
           label.querySelector("strong").appendChild(chip);
@@ -1590,9 +1586,7 @@
         if (!q) return;
         searchTimer = setTimeout(async () => {
           try {
-            const r = await fetch(
-              "/api/search?q=" + encodeURIComponent(q),
-            );
+            const r = await fetch("/api/search?q=" + encodeURIComponent(q));
             const d = await r.json();
             const list = (d.results || []).filter(
               (res) =>
