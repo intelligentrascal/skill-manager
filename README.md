@@ -1,205 +1,122 @@
-# Skill Manager
+# SKILL MANAGER
 
-**The Skill Genome - know what skills your agents have, where they live, and whether they drifted.**
+> **The skill genome for your agent fleet.**
+>
+> A local-first dashboard that makes every installed skill visible: where it lives, what each agent sees, and where its copies have mutated.
 
-Every skill is a living genome: a five-location strip (pi - opencode - claude - shared - repo) that stays
-continuous when your copies agree and visibly breaks when they drift. Health at a glance, no dashboards to
-decode. Click any genome for a specimen tray - the exact diff, the source, and one-click healing.
+**258 skills · 707 installed copies · five discovery locations · zero runtime dependencies**
 
-Skill Manager is a local-first dashboard for the skills spread across your AI
-coding agents. It scans every skill directory on your machine - Pi, OpenCode,
-Claude, shared, and your source repo - parses each `SKILL.md`, and tells you:
+A skill is a five-location genome: `pi` · `opencode` · `claude` · `shared` · `repo`.
+When its copies agree, the strip is continuous. When they disagree, it breaks in coral.
 
-- **What's installed** - every skill, its description, tags, model, and license
-- **Where it lives** - which harnesses expose a copy (Pi, OpenCode, Claude, shared, repo)
-- **If it's healthy** - are there duplicates? Have copies **drifted** apart?
-  Is the repo copy out of sync with git?
-- **What it actually does** - the full `SKILL.md` is one click away
+[Get started](#quick-start) · [Onboarding guide](docs/onboarding.html) · [Releases](https://github.com/intelligentrascal/skill-manager/releases)
 
-Zero dependencies. Node built-ins only. Runs entirely on your machine.
+---
 
-## Features
+## THE GENOME WALL
 
-### The Skill Genome
+The whole fleet as a compact field of five-location genome strips. Identical copies are healthy deployment mirrors. Drift is the signal that deserves attention.
 
-Every skill is a five-location strip (pi, opencode, claude, shared, repo).
-Continuous = your copies agree. A coral, cracked gene = drift, at a glance.
+![Genome Wall](docs/screenshots/genome-wall.png)
 
-![Genome wall](docs/screenshots/genome-wall.png)
-
-### Watch mode - the ripple
-
-Live re-scan + SSE. When a skill copy changes, its strip ripples once, then
-settles - you see exactly what moved.
-
-![Watch ripple](docs/screenshots/watch-ripple.gif)
+## FEATURES
 
 ### Mutation queue
-
-Every drift and uncommitted-repo skill, as an actionable list. Click to inspect.
+A focused queue for drifted skills, uncommitted repo copies, and upstream checks. Inspect the change before acting.
 
 ![Mutation queue](docs/screenshots/mutation-queue.png)
 
-### Matrix view
+### Specimen tray
+Open any skill to inspect its copies, hashes, metadata, and exact line diff. The repo copy is the source of truth; sync flows are previewed before confirmation.
 
-The whole estate as a dense skill x harness table. Status-colored cells:
-healthy, mutated, absent. Genome | Matrix | List toggles.
+![Specimen tray](docs/screenshots/specimen-tray.png)
+
+### Matrix view
+Switch from the visual wall to a dense skill-by-location matrix. See healthy, absent, and mutated copies without losing the fleet view.
 
 ![Matrix view](docs/screenshots/matrix-view.png)
 
 ### Full-text search
-
-Search across SKILL.md bodies, not just names - "which skills mention
-playwright?" gets a literal answer with highlighted snippets.
+Search `SKILL.md` bodies, not merely names. Find the skill that mentions a tool, workflow, or phrase and jump to the matching text.
 
 ![Full-text search](docs/screenshots/body-search.png)
 
-### Specimen tray
+### Watch mode
+When a skill copy changes, the affected genome ripples, the inventory re-scans, and the strip settles into its new state.
 
-Click any genome: the exact drift diff, the repo source, the affected copies,
-and one-click healing (preview, then confirm).
+![Watch ripple](docs/screenshots/watch-ripple.gif)
 
-![Specimen tray](docs/screenshots/specimen-tray.png)
+### Portability
+See what Pi, Claude, Codex, and OpenCode actually do with a skill's frontmatter. Compatibility findings carry evidence and confidence, not guesswork.
 
-## Why
+![Portability view](docs/screenshots/portability-view.png)
 
-AI agents are only as good as their skills - but skills rot silently. Copies
-drift between harnesses (a fix lands in `~/.agents` but not the repo), the same
-skill name hides two different versions, and nobody can answer "is my skill set
-up to date?" without spelunking five directories by hand.
+### Explain
+Ask the useful question directly: why does agent X see skill Y? Per-agent answers identify discovery paths, integrity, and the honest negative case - with confidence stated where precedence is not documented.
 
-Skill Manager makes the inventory visible, the drift detectable, and the "what
-does this actually do" question answerable in one click.
+![Explain tray](docs/screenshots/explain-tray.png)
 
-## Quick start
+## QUICK START
 
 ```bash
 git clone https://github.com/intelligentrascal/skill-manager.git
 cd skill-manager
 npm install
-npm run serve          # starts on http://127.0.0.1:7788
+npm run serve
 ```
 
-Open the URL. That's it.
+Open [http://127.0.0.1:7788](http://127.0.0.1:7788). No account, cloud service, or build step.
 
-## Features
+## HOW IT WORKS
 
-- **The Skill Genome** - a living wall where every skill is a five-location genome strip (pi · opencode · claude · shared · repo). Continuous = healthy; coral cracked genes = drift, at a glance.
-- **Specimen tray** - click any genome to expand: the exact diff, the repo source, the affected copies, and one-click healing (preview, then confirm).
-- **Mutation queue** - every drift / uncommitted-repo skill as an actionable list.
-- **Watch mode** - live re-scan + SSE; changed genome strips ripple once, then settle.
-- **Fleet upstream checks** - one button checks every upstream-declaring skill; STALE badges land on the genome rows themselves.
-- **Matrix view** - the whole estate as a dense skill x harness table with status colors (Genome | Matrix | List).
-- **Full-text search** - search across SKILL.md bodies too: "which skills mention playwright?" gets a literal answer with highlighted snippets.
-- **Portability (compat)** - knowledge-first: what each agent actually does with a skill's frontmatter.
+```text
+skill directories
+      ↓ scan SKILL.md, metadata, hashes, mtimes
+local inventory
+      ↓ group copies by name and content
+Genome Wall · Matrix · search · mutation queue
+      ↓ apply documented runtime facts
+Portability · Explain
+```
 
-![Portability view](docs/screenshots/portability-view.png)
+Skill Manager scans the standard Pi, OpenCode, Claude, shared, and repository locations. It parses each `SKILL.md`, hashes the full file, and groups copies by skill name:
 
-### Explain - who sees this skill
+| Status | Meaning |
+| --- | --- |
+| `OK` | One copy, or multiple identical copies |
+| `DUP` | Identical copies installed where agents expect to find them |
+| `DRIFT` | Copies with the same name differ and need inspection |
 
-The signature answer: why does agent X see skill Y, and what would it actually run? Per-agent verdicts with evidence - including the negative case ("codex does NOT see this: no copy in its scan paths").
+The repository copy also receives a `repoClean` check against `git HEAD`.
 
-![Explain tray](docs/screenshots/explain-tray.png) Which skills carry claude invocation fields (argument-hint, user-invocable...) that pi/codex/opencode silently ignore - with evidence, confidence, and remediation per issue.
-- **Full inventory** - scans 5 locations, parses frontmatter, builds one view
-- **Status model** per skill name:
-  - `OK` - a single copy, or multiple identical copies
-  - `DUP` - multiple copies with identical content (consistent, just installed everywhere)
-  - `DRIFT` - copies disagree (same name, different content - the dangerous one)
-- **`repoClean`** - for repo skills: does `git status` show that the on-disk copy is unchanged from git HEAD?
-- **Upstream check** - for skills with a detected GitHub source, one click compares your copy against the upstream `SKILL.md` and flags `STALE` / `UP TO DATE`
-- **Drift diff** - for drifted skills, an inline line-diff shows exactly what differs between two copies
-- **Attention queue** - a prioritized, read-only list of drifted and uncommitted repo copies to inspect first
-- **Static snapshot export** - download a self-contained HTML inventory report with no local paths or skill bodies
-- **Search + filters** - search by name/description, filter by harness (Pi /
-  OpenCode / Claude / shared / repo) and by status (OK / DUP / DRIFT)
-- **Detail drawer** - every copy (location, sha, mtime), the description, tags,
-  and the full `SKILL.md` text
-- **Re-scan on demand** - plus a 60s cache so the dashboard stays snappy
-- **Dark / light theme** - persisted
+## KNOWLEDGE-FIRST BY DESIGN
 
-## What gets scanned
+Skill Manager is an inventory and evidence tool, not an authority simulator.
+
+- **Physical copies are intentional.** Agents discover skills from their own paths. Exact duplicates are shown as healthy mirrors, not as waste to delete.
+- **The repo is the source of truth.** Drift resolution starts from the repository copy and is reviewable before a target is changed.
+- **Compatibility is conservative.** Documented facts and inferred behavior are labeled separately. Unknown frontmatter is surfaced, not falsely declared broken.
+- **Discovery is explicit.** Explain reports why an agent sees a skill, or why it does not, using resolved paths and stated evidence.
+- **Everything stays local.** The dashboard runs on `127.0.0.1` using Node built-ins only.
+
+## DISCOVERY LOCATIONS
 
 | Location | Default path | Layout |
 | --- | --- | --- |
-| pi | `~/.pi/agent/skills` | flat (`<name>/SKILL.md`) |
-| opencode | `~/.config/opencode/skills` | flat |
-| claude | `~/.claude/skills` | flat (often symlinks) |
-| shared | `~/.agents/skills` | flat (harness-agnostic) |
-| repo | `~/Documents/9. Projects/agent-skills/skills` | nested (`<category>/<name>/SKILL.md`) |
+| `pi` | `~/.pi/agent/skills` | flat |
+| `opencode` | `~/.config/opencode/skills` | flat |
+| `claude` | `~/.claude/skills` | flat, often symlinked |
+| `shared` | `~/.agents/skills` | flat |
+| `repo` | `<your-agent-skills-repo>/skills` | nested by category |
 
-All paths are overridable via environment variables (see below), so the app
-works on any machine layout.
+Override paths with `SM_PI_SKILLS`, `SM_OPENCODE_SKILLS`, `SM_CLAUDE_SKILLS`, `SM_SHARED_SKILLS`, and `SM_REPO_SKILLS`. Set `SM_PORT` to change the default port, `7788`.
 
-## The status model, explained
+## LINKS
 
-Skills get installed by many mechanisms - link farms, copies, manual installs.
-The same skill name can exist in several places with the *same* or *different*
-content. Skill Manager computes, per skill name:
+- [Onboarding guide](docs/onboarding.html)
+- [Latest releases](https://github.com/intelligentrascal/skill-manager/releases)
+- [Build specification](BUILD-SPEC.md)
 
-```
-sha256 of each copy's SKILL.md
-  one copy                 -> OK (unique)
-  multiple, same sha       -> DUP (duplicate - consistent, harmless)
-  multiple, different sha  -> DRIFT (the copies disagree - needs attention)
-```
-
-`DRIFT` is the signal that matters: it means a fix or update landed in one
-location but not others, and you're running two different versions of the same
-skill depending on which agent you ask.
-
-For skills in the `repo` location, `repoClean` additionally checks the on-disk
-file against `git HEAD` - so an uncommitted edit or a stale checkout is visible
-too.
-
-## Configuration
-
-```bash
-SM_PI_SKILLS=~/.pi/agent/skills
-SM_OPENCODE_SKILLS=~/.config/opencode/skills
-SM_CLAUDE_SKILLS=~/.claude/skills
-SM_SHARED_SKILLS=~/.agents/skills
-SM_REPO_SKILLS=~/.../skills      # nested category layout
-SM_PORT=7788
-```
-
-Unset variables fall back to the defaults above.
-
-## Architecture
-
-```
-src/
-  config.ts    scan locations + port (env-overridable)
-  scanner.ts   discovery, frontmatter parsing, sha, status + repoClean
-  server.ts    zero-dep HTTP server: /api/inventory, /api/skill, /api/refresh
-  public/
-    index.html the dashboard (single file, no build step)
-```
-
-- Scanner: walks each location (max depth 4), finds `SKILL.md`, parses the YAML
-  frontmatter, sha256s the content, groups by name, computes status.
-- Server: Node `http` only. Serves the dashboard + three JSON endpoints.
-- Dashboard: vanilla JS, DOM-based rendering (no innerHTML), dark/light theme.
-
-## API
-
-| Endpoint | Returns |
-| --- | --- |
-| `GET /` | the dashboard |
-| `GET /api/inventory` | full inventory (cached 60s) |
-| `GET /api/skill?name=X` | copies + description + full `SKILL.md` |
-| `GET /api/actions` | read-only prioritized health recommendations |
-| `GET /api/snapshot` | downloaded, standalone HTML inventory snapshot |
-| `GET /api/refresh` | force re-scan, returns inventory |
-
-## Roadmap
-
-- [x] GitHub upstream check for third-party skills (is there a newer version?)
-- [x] Drift diff - see exactly what changed between copies
-- [x] Export a static snapshot (HTML) for sharing
-- [x] Suggested actions: inspect drifted or uncommitted repo copies
-- [ ] Watch mode: live re-scan on file changes
-- [ ] Safe, confirmation-based sync workflow with a preview and rollback path
-
-## License
+## LICENSE
 
 MIT
