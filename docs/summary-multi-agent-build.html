@@ -3,244 +3,286 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Skill Manager - The Multi-Agent Build, Visualized</title>
+<title>Skill Manager - The Multi-Agent Build</title>
 <style>
-:root {
-  --bg:#0b0e12; --bg2:#10141a; --card:#141920; --card2:#1a212b;
-  --ink:#e6edf3; --ink2:#9aa8b8; --ink3:#6b7a8c;
-  --line:#232c38; --line2:#33404f;
-  --amber:#e8b44a; --coral:#e26d5a; --good:#3ddc84; --warn:#e5b567; --info:#6db3f2;
+:root{
+  --bg:#0b0e12;--bg2:#10141a;--card:#141920;--card2:#1a212b;
+  --ink:#e6edf3;--ink2:#9aa8b8;--ink3:#6b7a8c;--line:#232c38;--line2:#33404f;
+  --amber:#e8b44a;--coral:#e26d5a;--good:#3ddc84;--warn:#e5b567;--info:#6db3f2;
+  --main:#e8b44a;--wr:#3ddc84;--dr:#6db3f2;--vr:#e5b567;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
-[data-theme="light"] {
-  --bg:#f4f5f7; --bg2:#fff; --card:#fff; --card2:#f0f2f5;
-  --ink:#1a222c; --ink2:#47566a; --ink3:#7c8a9b;
-  --line:#e0e4ea; --line2:#c8d0da;
-  --amber:#a8760f; --coral:#c24534; --good:#1f8f6b; --warn:#a17017; --info:#2f6fb0;
+[data-theme="light"]{
+  --bg:#f4f5f7;--bg2:#fff;--card:#fff;--card2:#f0f2f5;
+  --ink:#1a222c;--ink2:#47566a;--ink3:#7c8a9b;--line:#e0e4ea;--line2:#c8d0da;
+  --amber:#a8760f;--coral:#c24534;--good:#1f8f6b;--warn:#a17017;--info:#2f6fb0;
+  --main:#a8760f;--wr:#1f8f6b;--dr:#2f6fb0;--vr:#a17017;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
-.wrap{max-width:980px;margin:0 auto;padding:48px 24px 80px}
-#toggle{position:fixed;top:16px;right:20px;z-index:50;border:1px solid var(--line2);border-radius:999px;background:var(--card);color:var(--ink2);font-size:13px;padding:7px 14px;cursor:pointer}
-.hero{padding:36px 0 26px}
-.kicker{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);border:1px solid var(--line2);border-radius:999px;padding:4px 12px;margin-bottom:18px;font-weight:700}
-.hero h1{font-size:clamp(28px,4.5vw,42px);line-height:1.12;letter-spacing:-.02em;font-weight:800;margin-bottom:12px}
-.hero .lede{font-size:clamp(15px,1.8vw,18px);color:var(--ink2);max-width:700px}
-.stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:26px 0 8px}
-.stat{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:14px 16px}
-.stat .n{font:800 26px var(--mono);color:var(--amber);display:block}
-.stat .l{font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
-section{padding:30px 0;border-top:1px solid var(--line)}
-h2{font-size:clamp(20px,2.6vw,27px);font-weight:800;letter-spacing:-.015em;margin-bottom:16px}
-h2 .n{color:var(--amber);margin-right:8px;font-family:var(--mono)}
-h3{font-size:15px;font-weight:700;margin:18px 0 10px}
-p{color:var(--ink2);font-size:14px;margin-bottom:10px}
-code{font-family:var(--mono);font-size:.86em;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
-/* timeline */
-.tl{border-left:2px solid var(--line2);margin:18px 0 0 10px;padding-left:24px}
-.tl-item{position:relative;padding:0 0 22px 0}
-.tl-item::before{content:"";position:absolute;left:-31px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--card2);border:2px solid var(--amber)}
-.tl-item .t{font:700 12px var(--mono);color:var(--ink3);letter-spacing:.05em}
-.tl-item .who{display:inline-block;font:800 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;border-radius:5px;padding:2px 8px;margin:4px 6px 4px 0}
-.tl-item .d{color:var(--ink2);font-size:13.5px}
-.tl-item .rel{display:inline-block;font:800 10px var(--mono);color:var(--good);border:1px solid var(--good);border-radius:999px;padding:1px 8px;margin-left:6px}
-.w-main{background:#33404f22;border:1px solid var(--line2);color:var(--ink)}
-.w-wr{background:#3ddc8422;border:1px solid #3ddc8477;color:var(--good)}
-.w-dr{background:#6db3f222;border:1px solid #6db3f277;color:var(--info)}
-.w-vr{background:#e5b56722;border:1px solid #e5b56777;color:var(--warn)}
-/* agent cards */
-.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
-.agent{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:16px}
-.agent h3{font:800 14px var(--mono);margin:0 0 4px}
-.agent .role{font-size:12px;color:var(--ink3);margin-bottom:10px}
-.agent ul{list-style:none}
-.agent li{font-size:12.5px;color:var(--ink2);padding:4px 0;border-bottom:1px dashed var(--line)}
-.agent li:last-child{border-bottom:none}
-.agent .err{color:var(--coral);font-weight:700}
-/* review web */
-.web{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:16px 18px;margin:14px 0}
-.web .pair{display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line)}
-.web .pair:last-child{border-bottom:none}
-.web .arrow{color:var(--amber);font-family:var(--mono);font-weight:700}
-.web .from{font:700 12.5px var(--mono)}
-.web .to{font:700 12.5px var(--mono)}
-.web .what{color:var(--ink2);font-size:13px}
-.web .caught{display:inline-block;font:700 11px var(--mono);color:var(--coral);background:#e26d5a22;border:1px solid #e26d5a66;border-radius:5px;padding:1px 7px;margin-left:6px}
-.web .ok{display:inline-block;font:700 11px var(--mono);color:var(--good);background:#3ddc8422;border:1px solid #3ddc8466;border-radius:5px;padding:1px 7px;margin-left:6px}
-/* tally */
-.tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
-.tally-card{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:16px}
-.tally-card .n{font:800 30px var(--mono)}
-.tally-card .who{font:800 12px var(--mono);text-transform:uppercase;letter-spacing:.06em}
-.tally-card .detail{font-size:12px;color:var(--ink3);margin-top:6px}
-.tally-card.top{box-shadow:0 0 0 1px var(--coral),0 0 24px #e26d5a33}
-.tally-card .tag{font:800 9px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--coral)}
-/* releases */
-.rel-rail{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-.rel-chip{font:700 12px var(--mono);border:1px solid var(--line2);border-radius:999px;padding:6px 14px;background:var(--card);color:var(--ink2)}
-.rel-chip b{color:var(--amber)}
-footer{padding:26px 0 0;color:var(--ink3);font-size:12px;border-top:1px solid var(--line)}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:36px 20px 60px}
+#toggle{position:fixed;top:14px;right:18px;z-index:50;border:1px solid var(--line2);border-radius:999px;background:var(--card);color:var(--ink2);font-size:12px;padding:6px 13px;cursor:pointer}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:20px 0 18px}
+.hero h1{font-size:clamp(26px,4vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.hero .sub{color:var(--ink3);font-size:13px;margin-top:6px}
+.stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:0 0 26px}
+.stat{border:1px solid var(--line2);border-radius:12px;background:var(--card);padding:12px 14px;text-align:center}
+.stat .n{font:800 24px var(--mono);display:block}
+.stat .l{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.card{border:1px solid var(--line2);border-radius:14px;background:var(--card);padding:20px;margin:0 0 20px}
+.card h2{font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h2 .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 14px;font:700 11px var(--mono)}
+.legend span{display:flex;align-items:center;gap:6px;color:var(--ink2)}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+svg{width:100%;height:auto;display:block}
+.tl-label{font:700 11px var(--mono);fill:var(--ink3)}
+.tl-agent{font:800 11px var(--mono);letter-spacing:.08em}
+.tl-work{font:700 10px var(--mono)}
+.tl-release{font:800 10px var(--mono);fill:var(--good)}
+.tl-err{font:800 10px var(--mono);fill:var(--coral)}
+.bar-row{display:grid;grid-template-columns:130px 1fr 60px;align-items:center;gap:12px;margin:10px 0}
+.bar-row .name{font:800 12px var(--mono);text-align:right;white-space:nowrap}
+.bar-row .track{height:22px;background:var(--bg2);border-radius:6px;border:1px solid var(--line);overflow:hidden;position:relative}
+.bar-row .fill{height:100%;border-radius:6px}
+.bar-row .num{font:800 13px var(--mono)}
+.bar-row .sub{font:700 9.5px var(--mono);color:var(--ink3)}
+.web-wrap{position:relative}
+.web-note{position:absolute;font:700 10px var(--mono);padding:4px 8px;border-radius:6px;background:var(--card2);border:1px solid var(--line2);pointer-events:none}
+footer{padding:18px 0 4px;color:var(--ink3);font-size:11px;border-top:1px solid var(--line);text-align:center;font-family:var(--mono)}
 </style>
 </head>
 <body>
 <button id="toggle" onclick="toggleTheme()">Theme</button>
 <div class="wrap">
-  <div class="hero">
-    <span class="kicker">Post-mortem visual</span>
-    <h1>The Multi-Agent Build, Visualized</h1>
-    <p class="lede">Skill Manager went from concept to v0.6.0 plus a perf fix and a three-track build in one day, orchestrated across three agents. Who did what, when, who waited for whom, who double-checked whose work, and who had the most errors.</p>
-    <div class="stat-strip">
-      <div class="stat"><span class="n">3</span><span class="l">agents</span></div>
-      <div class="stat"><span class="n">20</span><span class="l">commits</span></div>
-      <div class="stat"><span class="n">6</span><span class="l">releases</span></div>
-      <div class="stat"><span class="n">37</span><span class="l">tests green</span></div>
-      <div class="stat"><span class="n">24x</span><span class="l">load speedup</span></div>
-      <div class="stat"><span class="n">10</span><span class="l">errors caught</span></div>
-    </div>
+
+<div class="hero">
+  <div>
+    <h1>One Day, Three Agents</h1>
+    <div class="sub">Skill Manager: concept → v0.6.0 → A/B/C tracks · 20 commits · 6 releases · 10 errors caught</div>
   </div>
+</div>
 
-  <section>
-    <h2><span class="n">01</span>The cast</h2>
-    <div class="agents">
-      <div class="agent">
-        <h3>Main</h3>
-        <div class="role">deepseek-v4-flash - orchestrator</div>
-        <ul>
-          <li>Server, knowledge, integration, tests, docs, publishing</li>
-          <li>Perf root-cause + fix (24x)</li>
-          <li>Owned track C: variant adaptation engine</li>
-          <li class="err">Most errors caught (8) - and most code written</li>
-        </ul>
-      </div>
-      <div class="agent">
-        <h3>wR:p1</h3>
-        <div class="role">GPT-5.6 Terra pi - co-builder</div>
-        <ul>
-          <li>Genome Wall UI, Portability view</li>
-          <li>Pi discovery facts, source-validated</li>
-          <li>Owned track A: provenance manifest</li>
-          <li>3 review rounds - caught errors in Main</li>
-        </ul>
-      </div>
-      <div class="agent">
-        <h3>design-review</h3>
-        <div class="role">GPT-5.6 Terra - fresh eyes</div>
-        <ul>
-          <li>README redesign (full pass)</li>
-          <li>Spec grilling: 10 questions</li>
-          <li>Owned track B: update contract + security gate</li>
-          <li>1 error caught (path leak)</li>
-        </ul>
-      </div>
-      <div class="agent">
-        <h3>vision-reviewer</h3>
-        <div class="role">mimo-v2.5 - vision</div>
-        <ul>
-          <li>GIF verification attempt</li>
-          <li class="err">Aborted - the one "stuck" moment</li>
-        </ul>
-      </div>
-    </div>
-  </section>
+<div class="stat-strip">
+  <div class="stat"><span class="n" style="color:var(--main)">3</span><span class="l">agents</span></div>
+  <div class="stat"><span class="n" style="color:var(--wr)">24x</span><span class="l">load speedup</span></div>
+  <div class="stat"><span class="n" style="color:var(--dr)">37</span><span class="l">tests green</span></div>
+  <div class="stat"><span class="n" style="color:var(--coral)">10</span><span class="l">errors caught</span></div>
+  <div class="stat"><span class="n" style="color:var(--amber)">0</span><span class="l">errors shipped</span></div>
+</div>
 
-  <section>
-    <h2><span class="n">02</span>The timeline - who did what, when</h2>
-    <div class="tl">
-      <div class="tl-item"><span class="t">13:11</span><span class="who w-main">main</span><span class="d">Watch mode + sync + crash hardening (collab with wR:p1)</span></div>
-      <div class="tl-item"><span class="t">13:33</span><span class="who w-wr">wR:p1</span><span class="d">Genome Wall + ripple built; main integrated + tested <span class="rel">v0.3.0</span></span></div>
-      <div class="tl-item"><span class="t">13:54</span><span class="who w-main">main</span><span class="d">Visibility + full-text search (fleet upstream badges, matrix, body search) <span class="rel">v0.4.0</span></span></div>
-      <div class="tl-item"><span class="t">14:41</span><span class="who w-main">main</span><span class="d">README features + per-feature screenshots, onboarding</span></div>
-      <div class="tl-item"><span class="t">14:56</span><span class="who w-wr">wR:p1</span><span class="d">Portability frontend; main built the knowledge layer <span class="rel">v0.5.0</span> - review caught 2 profile errors in main's pi model</span></div>
-      <div class="tl-item"><span class="t">15:16</span><span class="who w-main">main</span><span class="d">Ripple visibility fix (user caught the invisible animation)</span></div>
-      <div class="tl-item"><span class="t">18:44</span><span class="who w-wr">wR:p1</span><span class="d">Pi discovery facts (source-validated); main built explain engine <span class="rel">v0.6.0</span> - final review caught precedence overclaim + trust gap</span></div>
-      <div class="tl-item"><span class="t">18:54</span><span class="who w-main">main</span><span class="d">Security audit + machine-path redaction</span></div>
-      <div class="tl-item"><span class="t">19:12</span><span class="who w-dr">design-review</span><span class="d">README redesign (built); wR:p1 double-checked; main QA caught path leak re-introduced</span></div>
-      <div class="tl-item"><span class="t">21:29</span><span class="who w-main">main</span><span class="d">Upstream spec v0.2 (drafted); design-review grilled it - 10 questions converged</span></div>
-      <div class="tl-item"><span class="t">22:16</span><span class="who w-main">main</span><span class="d">Variant-aware duplicate categorization (4c)</span></div>
-      <div class="tl-item"><span class="t">22:41</span><span class="who w-main">main</span><span class="d">Spec 9+10: performance investigation + UI/UX final phase</span></div>
-      <div class="tl-item"><span class="t">22:44</span><span class="who w-main">main</span><span class="d">Perf fix: 223 git spawns -&gt; 1 batch call. Cold load 13.9s -&gt; 0.57s (24x)</span></div>
-      <div class="tl-item"><span class="t">22:47</span><span class="who w-main">main</span><span class="d">Track C: variant adaptation engine (8 tests)</span></div>
-      <div class="tl-item"><span class="t">22:53</span><span class="who w-wr">wR:p1</span><span class="who w-dr">design-review</span><span class="d">Tracks A + B landed (manifest + update contract) - 37 tests green</span></div>
-    </div>
-  </section>
+<!-- ============ SWIMLANE ============ -->
+<div class="card">
+  <h2><span class="dot" style="background:var(--amber)"></span>Who did what, when</h2>
+  <div class="legend">
+    <span><i style="background:var(--main)"></i>main · orchestrator</span>
+    <span><i style="background:var(--wr)"></i>wR:p1 · co-builder</span>
+    <span><i style="background:var(--dr)"></i>design-review · fresh eyes</span>
+    <span><i style="background:var(--vr)"></i>vision-reviewer</span>
+    <span style="color:var(--good)">◆ release</span>
+    <span style="color:var(--coral)">★ error caught</span>
+  </div>
+  <svg viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+    <!-- time axis -->
+    <line x1="70" y1="400" x2="980" y2="400" stroke="var(--line2)" stroke-width="2"/>
+    <!-- lane separators -->
+    <line x1="70" y1="110" x2="980" y2="110" stroke="var(--line)" stroke-width="1"/>
+    <line x1="70" y1="195" x2="980" y2="195" stroke="var(--line)" stroke-width="1"/>
+    <line x1="70" y1="280" x2="980" y2="280" stroke="var(--line)" stroke-width="1"/>
+    <line x1="70" y1="365" x2="980" y2="365" stroke="var(--line)" stroke-width="1"/>
+    <!-- hour ticks 13..23 -->
+    <g class="tl-label" text-anchor="middle">
+      <text x="70"  y="420">13:00</text>
+      <text x="161" y="420">14:00</text>
+      <text x="252" y="420">15:00</text>
+      <text x="343" y="420">16:00</text>
+      <text x="434" y="420">17:00</text>
+      <text x="525" y="420">18:00</text>
+      <text x="616" y="420">19:00</text>
+      <text x="707" y="420">20:00</text>
+      <text x="798" y="420">21:00</text>
+      <text x="889" y="420">22:00</text>
+      <text x="980" y="420">23:00</text>
+    </g>
+    <!-- lane labels -->
+    <g class="tl-agent">
+      <text x="10" y="30" fill="var(--main)">main</text>
+      <text x="10" y="115" fill="var(--wr)">wR:p1</text>
+      <text x="10" y="200" fill="var(--dr)">design</text>
+      <text x="10" y="285" fill="var(--vr)">vision</text>
+      <text x="10" y="370" fill="var(--ink3)">release</text>
+    </g>
+    <!-- helper: x(hours from 13:00), 91px per hour -->
+    <!-- MAIN lane -->
+    <rect x="70"  y="20" width="55"  height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="80" y="42" fill="var(--main)">watch + sync</text>
+    <rect x="148" y="20" width="100" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="158" y="42" fill="var(--main)">genome integration</text>
+    <rect x="255" y="20" width="120" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="265" y="42" fill="var(--main)">visibility + search</text>
+    <rect x="390" y="20" width="70" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="400" y="42" fill="var(--main)">readme shots</text>
+    <rect x="470" y="20" width="90" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="480" y="42" fill="var(--main)">knowledge layer</text>
+    <rect x="610" y="20" width="55" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="620" y="42" fill="var(--main)">ripple fix</text>
+    <rect x="700" y="20" width="120" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="710" y="42" fill="var(--main)">security + redact</text>
+    <rect x="830" y="20" width="150" height="54" rx="8" fill="var(--main)" opacity="0.16"/>
+    <text class="tl-work" x="840" y="42" fill="var(--main)">upstream spec</text>
+    <!-- error stars on main lane -->
+    <g class="tl-err">
+      <text x="530" y="90" font-size="13">★</text>
+      <text x="575" y="90" font-size="13">★</text>
+      <text x="620" y="90" font-size="13">★</text>
+      <text x="730" y="90" font-size="13">★</text>
+      <text x="860" y="90" font-size="13">★</text>
+      <text x="895" y="90" font-size="13">★</text>
+    </g>
+    <!-- WR lane -->
+    <rect x="148" y="125" width="60" height="54" rx="8" fill="var(--wr)" opacity="0.16"/>
+    <text class="tl-work" x="158" y="147" fill="var(--wr)">genome wall</text>
+    <rect x="520" y="125" width="100" height="54" rx="8" fill="var(--wr)" opacity="0.16"/>
+    <text class="tl-work" x="530" y="147" fill="var(--wr)">portability UI</text>
+    <rect x="700" y="125" width="55" height="54" rx="8" fill="var(--wr)" opacity="0.16"/>
+    <text class="tl-work" x="710" y="147" fill="var(--wr)">pi facts</text>
+    <rect x="889" y="125" width="91" height="54" rx="8" fill="var(--wr)" opacity="0.16"/>
+    <text class="tl-work" x="899" y="147" fill="var(--wr)">manifest (A)</text>
+    <!-- DESIGN lane -->
+    <rect x="610" y="210" width="110" height="54" rx="8" fill="var(--dr)" opacity="0.16"/>
+    <text class="tl-work" x="620" y="232" fill="var(--dr)">readme redesign</text>
+    <rect x="889" y="210" width="91" height="54" rx="8" fill="var(--dr)" opacity="0.16"/>
+    <text class="tl-work" x="899" y="232" fill="var(--dr)">update (B)</text>
+    <!-- VISION lane -->
+    <rect x="570" y="295" width="60" height="54" rx="8" fill="var(--vr)" opacity="0.16"/>
+    <text class="tl-work" x="580" y="317" fill="var(--vr)">gif check</text>
+    <text class="tl-err" x="605" y="368" font-size="13">★ aborted</text>
+    <!-- RELEASE lane: diamonds -->
+    <g class="tl-release" text-anchor="middle">
+      <text x="182" y="378">◆</text>
+      <text x="182" y="392">v0.3</text>
+      <text x="320" y="378">◆</text>
+      <text x="320" y="392">v0.4</text>
+      <text x="520" y="378">◆</text>
+      <text x="520" y="392">v0.5</text>
+      <text x="730" y="378">◆</text>
+      <text x="730" y="392">v0.6</text>
+    </g>
+  </svg>
+</div>
 
-  <section>
-    <h2><span class="n">03</span>Who waited for whom</h2>
-    <div class="web">
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="what">waited on wR:p1 for: genome wall build, pi discovery facts, two review rounds. The 15:16 ripple fix waited on the user catching the bug.</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="what">waited on design-review for: README redesign, upstream-spec grilling, track B contract.</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="what">waited on vision-reviewer for the GIF check - it aborted, main stalled ("you got stuck again"), then shipped on programmatic evidence.</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="what">worked in parallel; its session was compacted 80% -&gt; 35% mid-build so it could keep going.</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">design-review</span><span class="what">fresh agent, never waited; its only gate was "define B's contract before C integrates".</span></div>
-    </div>
-  </section>
+<!-- ============ ERROR TALLY ============ -->
+<div class="card">
+  <h2><span class="dot" style="background:var(--coral)"></span>Error tally</h2>
+  <div class="bar-row"><span class="name" style="color:var(--main)">main</span><div class="track"><div class="fill" style="width:100%;background:var(--main)"></div></div><span class="num" style="color:var(--main)">8</span></div>
+  <div class="bar-row" style="grid-template-columns:130px 1fr 60px"><span class="name" style="color:var(--dr)">design-review</span><div class="track"><div class="fill" style="width:12.5%;background:var(--dr)"></div></div><span class="num" style="color:var(--dr)">1</span></div>
+  <div class="bar-row"><span class="name" style="color:var(--vr)">vision-reviewer</span><div class="track"><div class="fill" style="width:12.5%;background:var(--vr)"></div></div><span class="num" style="color:var(--vr)">1</span></div>
+  <div class="bar-row"><span class="name" style="color:var(--wr)">wR:p1</span><div class="track"><div class="fill" style="width:0%;background:var(--wr)"></div></div><span class="num" style="color:var(--wr)">0</span></div>
+  <p style="color:var(--ink3);font-size:11px;font-family:var(--mono);margin-top:10px">main: most errors, most code, every one caught before shipping · wR:p1: zero errors, most catches</p>
+</div>
 
-  <section>
-    <h2><span class="n">04</span>The review web - who double-checked whom</h2>
-    <div class="web">
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="to">main</span><span class="what">API shape review, round 1</span><span class="caught">caught: pi honors allowed-tools + disable-model-invocation (main had them wrong)</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="to">main</span><span class="what">Final review, round 3</span><span class="caught">caught: precedence overclaim + trust-gated kinds gap</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">wR:p1</span><span class="to">design-review</span><span class="what">README accuracy check</span><span class="caught">caught: "one click to heal" overpromise + precedence claim in explain copy</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="to">design-review</span><span class="what">README QA</span><span class="caught">caught: machine path re-introduced (privacy)</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">design-review</span><span class="to">main</span><span class="what">Upstream spec grilling</span><span class="ok">10 questions - identity, fetch granularity, variant storage, security gate</span></div>
-      <div class="pair"><span class="arrow">-&gt;</span><span class="from">main</span><span class="to">design-review</span><span class="what">Variant code review</span><span class="caught">caught: codex rule contradicted compat profile</span></div>
-    </div>
-  </section>
+<!-- ============ REVIEW WEB ============ -->
+<div class="card">
+  <h2><span class="dot" style="background:var(--wr)"></span>Who double-checked whom</h2>
+  <svg viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line2)"/></marker>
+      <marker id="arc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--coral)"/></marker>
+    </defs>
+    <!-- nodes -->
+    <g>
+      <rect x="40"  y="140" width="200" height="70" rx="12" fill="var(--card2)" stroke="var(--main)" stroke-width="2"/>
+      <text x="60" y="168" font-family="var(--mono)" font-size="16" font-weight="800" fill="var(--main)">main</text>
+      <text x="60" y="190" font-family="var(--mono)" font-size="10" fill="var(--ink3)">8 errors · most code</text>
+      <rect x="380" y="40"  width="200" height="70" rx="12" fill="var(--card2)" stroke="var(--wr)" stroke-width="2"/>
+      <text x="400" y="68" font-family="var(--mono)" font-size="16" font-weight="800" fill="var(--wr)">wR:p1</text>
+      <text x="400" y="90" font-family="var(--mono)" font-size="10" fill="var(--ink3)">0 errors · best reviewer</text>
+      <rect x="380" y="260" width="200" height="70" rx="12" fill="var(--card2)" stroke="var(--dr)" stroke-width="2"/>
+      <text x="400" y="288" font-family="var(--mono)" font-size="16" font-weight="800" fill="var(--dr)">design-review</text>
+      <text x="400" y="310" font-family="var(--mono)" font-size="10" fill="var(--ink3)">1 error · fresh eyes</text>
+      <rect x="760" y="140" width="200" height="70" rx="12" fill="var(--card2)" stroke="var(--vr)" stroke-width="2"/>
+      <text x="780" y="168" font-family="var(--mono)" font-size="16" font-weight="800" fill="var(--vr)">vision-reviewer</text>
+      <text x="780" y="190" font-family="var(--mono)" font-size="10" fill="var(--ink3)">aborted gif check</text>
+    </g>
+    <!-- edges: wR -> main -->
+    <path d="M 380 90 Q 300 110 250 150" fill="none" stroke="var(--coral)" stroke-width="2.5" marker-end="url(#arc)"/>
+    <rect x="240" y="78" width="130" height="30" rx="6" fill="var(--card)" stroke="var(--coral)" stroke-width="1"/>
+    <text x="250" y="98" font-family="var(--mono)" font-size="9.5" fill="var(--coral)">✕ 2 profile errors</text>
+    <!-- wR -> main (2nd) -->
+    <path d="M 400 90 Q 330 140 280 160" fill="none" stroke="var(--coral)" stroke-width="1.5" marker-end="url(#arc)"/>
+    <rect x="90" y="60" width="140" height="30" rx="6" fill="var(--card)" stroke="var(--coral)" stroke-width="1"/>
+    <text x="100" y="80" font-family="var(--mono)" font-size="9.5" fill="var(--coral)">✕ precedence + trust</text>
+    <!-- wR -> design -->
+    <path d="M 500 110 Q 540 180 500 255" fill="none" stroke="var(--coral)" stroke-width="1.5" marker-end="url(#arc)"/>
+    <rect x="520" y="160" width="120" height="30" rx="6" fill="var(--card)" stroke="var(--coral)" stroke-width="1"/>
+    <text x="530" y="180" font-family="var(--mono)" font-size="9.5" fill="var(--coral)">✕ "heal" overpromise</text>
+    <!-- main -> design -->
+    <path d="M 240 200 Q 320 240 375 290" fill="none" stroke="var(--coral)" stroke-width="1.5" marker-end="url(#arc)"/>
+    <rect x="240" y="250" width="130" height="30" rx="6" fill="var(--card)" stroke="var(--coral)" stroke-width="1"/>
+    <text x="250" y="270" font-family="var(--mono)" font-size="9.5" fill="var(--coral)">✕ path leak</text>
+    <!-- design -> main -->
+    <path d="M 380 290 Q 300 260 250 215" fill="none" stroke="var(--good)" stroke-width="2" marker-end="url(#ar)"/>
+    <rect x="90" y="250" width="140" height="30" rx="6" fill="var(--card)" stroke="var(--good)" stroke-width="1"/>
+    <text x="100" y="270" font-family="var(--mono)" font-size="9.5" fill="var(--good)">✓ grilled spec: 10 q</text>
+    <!-- vision -> main (stall) -->
+    <path d="M 755 175 Q 660 165 600 160" fill="none" stroke="var(--vr)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+    <rect x="560" y="120" width="160" height="30" rx="6" fill="var(--card)" stroke="var(--vr)" stroke-width="1"/>
+    <text x="570" y="140" font-family="var(--mono)" font-size="9.5" fill="var(--vr)">✕ aborted - the stall</text>
+  </svg>
+</div>
 
-  <section>
-    <h2><span class="n">05</span>The error tally</h2>
-    <div class="tally">
-      <div class="tally-card top">
-        <span class="tag">most errors</span>
-        <span class="n" style="color:var(--coral)">8</span>
-        <div class="who">main</div>
-        <div class="detail">pi profile errors x2, precedence overclaim, trust gap, HOME path bug x2, missing home param, windows path separator, codex test inconsistency. Most errors, most code, and the most caught by review.</div>
-      </div>
-      <div class="tally-card">
-        <span class="n" style="color:var(--warn)">1</span>
-        <div class="who">design-review</div>
-        <div class="detail">Machine path leak re-introduced in the README redesign - caught by main's QA before publish.</div>
-      </div>
-      <div class="tally-card">
-        <span class="n" style="color:var(--good)">0</span>
-        <div class="who">wR:p1</div>
-        <div class="detail">Zero errors caught in its output. It caught errors in others - the reviewer agent did its job.</div>
-      </div>
-      <div class="tally-card">
-        <span class="n" style="color:var(--warn)">1</span>
-        <div class="who">vision-reviewer</div>
-        <div class="detail">Aborted the GIF check - the single process failure of the day, which caused the one stall.</div>
-      </div>
-    </div>
-  </section>
+<!-- ============ WAIT-FOR ============ -->
+<div class="card">
+  <h2><span class="dot" style="background:var(--dr)"></span>Who waited for whom</h2>
+  <svg viewBox="0 0 1000 180" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line2)"/></marker>
+    </defs>
+    <g font-family="var(--mono)" font-size="12" font-weight="700">
+      <rect x="20"  y="60" width="140" height="50" rx="10" fill="var(--card2)" stroke="var(--main)" stroke-width="2"/>
+      <text x="40" y="90" fill="var(--main)">main</text>
+      <rect x="430" y="60" width="140" height="50" rx="10" fill="var(--card2)" stroke="var(--wr)" stroke-width="2"/>
+      <text x="450" y="90" fill="var(--wr)">wR:p1</text>
+      <rect x="430" y="110" width="140" height="50" rx="10" fill="var(--card2)" stroke="var(--dr)" stroke-width="2"/>
+      <text x="450" y="140" fill="var(--dr)">design-review</text>
+      <rect x="20"  y="110" width="140" height="50" rx="10" fill="var(--card2)" stroke="var(--vr)" stroke-width="2"/>
+      <text x="40" y="140" fill="var(--vr)">vision</text>
+    </g>
+    <path d="M 160 85 L 425 85" fill="none" stroke="var(--line2)" stroke-width="2" marker-end="url(#aw)"/>
+    <text x="190" y="75" font-family="var(--mono)" font-size="10" fill="var(--ink3)">waited: wall · facts · 2 reviews</text>
+    <path d="M 160 135 L 425 135" fill="none" stroke="var(--line2)" stroke-width="2" marker-end="url(#aw)"/>
+    <text x="190" y="125" font-family="var(--mono)" font-size="10" fill="var(--ink3)">waited: readme · spec grill · track B</text>
+    <path d="M 165 120 L 380 100" fill="none" stroke="var(--vr)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aw)"/>
+    <text x="200" y="165" font-family="var(--mono)" font-size="10" fill="var(--vr)">the stall: gif check aborted → main froze</text>
+  </svg>
+</div>
 
-  <section>
-    <h2><span class="n">06</span>The release rail</h2>
-    <div class="rel-rail">
-      <div class="rel-chip"><b>v0.2.1</b> base</div>
-      <div class="rel-chip"><b>v0.3.0</b> Skill Genome</div>
-      <div class="rel-chip"><b>v0.4.0</b> Visibility + Search</div>
-      <div class="rel-chip"><b>v0.5.0</b> Portability</div>
-      <div class="rel-chip"><b>v0.6.0</b> Explain + Suggestions</div>
-      <div class="rel-chip"><b>next</b> A+B+C tracks</div>
-      <div class="rel-chip"><b>last</b> UI/UX redesign (D)</div>
-    </div>
-    <p style="margin-top:16px">Every release shipped with: typecheck clean, tests green, docs updated (README + onboarding + BUILD-SPEC), and screenshots captured. The review loop was the safety net: 10 real errors caught before they shipped.</p>
-  </section>
+<!-- ============ RELEASE RAIL ============ -->
+<div class="card">
+  <h2><span class="dot" style="background:var(--good)"></span>Release rail</h2>
+  <svg viewBox="0 0 1000 90" xmlns="http://www.w3.org/2000/svg">
+    <line x1="30" y1="45" x2="970" y2="45" stroke="var(--line2)" stroke-width="3"/>
+    <g font-family="var(--mono)" text-anchor="middle">
+      <g><circle cx="80" cy="45" r="9" fill="var(--card2)" stroke="var(--line2)" stroke-width="2"/><text y="30" font-size="11" font-weight="800" fill="var(--ink2)">v0.2.1</text><text y="70" font-size="9" fill="var(--ink3)">base</text></g>
+      <g><circle cx="220" cy="45" r="11" fill="var(--amber)" stroke="var(--amber)" stroke-width="2"/><text y="28" font-size="11" font-weight="800" fill="var(--amber)">v0.3.0</text><text y="70" font-size="9" fill="var(--ink3)">genome</text></g>
+      <g><circle cx="380" cy="45" r="11" fill="var(--amber)" stroke="var(--amber)" stroke-width="2"/><text y="28" font-size="11" font-weight="800" fill="var(--amber)">v0.4.0</text><text y="70" font-size="9" fill="var(--ink3)">visibility+search</text></g>
+      <g><circle cx="540" cy="45" r="11" fill="var(--amber)" stroke="var(--amber)" stroke-width="2"/><text y="28" font-size="11" font-weight="800" fill="var(--amber)">v0.5.0</text><text y="70" font-size="9" fill="var(--ink3)">portability</text></g>
+      <g><circle cx="700" cy="45" r="11" fill="var(--amber)" stroke="var(--amber)" stroke-width="2"/><text y="28" font-size="11" font-weight="800" fill="var(--amber)">v0.6.0</text><text y="70" font-size="9" fill="var(--ink3)">explain</text></g>
+      <g><circle cx="860" cy="45" r="11" fill="var(--card2)" stroke="var(--dr)" stroke-width="2.5" stroke-dasharray="4 3"/><text y="28" font-size="11" font-weight="800" fill="var(--dr)">A+B+C</text><text y="70" font-size="9" fill="var(--ink3)">in flight</text></g>
+      <g><circle cx="950" cy="45" r="9" fill="var(--card2)" stroke="var(--coral)" stroke-width="2" stroke-dasharray="4 3"/><text y="28" font-size="11" font-weight="800" fill="var(--coral)">D</text><text y="70" font-size="9" fill="var(--ink3)">ui/ux last</text></g>
+    </g>
+  </svg>
+</div>
 
-  <footer>Skill Manager collaboration summary - generated 2026-08-12. Agents: main (deepseek-v4-flash), wR:p1 + design-review (GPT-5.6 Terra), vision-reviewer (mimo-v2.5).</footer>
+<footer>generated 2026-08-12 · 3 agents · 20 commits · 6 releases · 10 errors caught, 0 shipped</footer>
 </div>
 <script>
-function toggleTheme() {
-  const d = document.documentElement;
-  const next = d.getAttribute("data-theme") === "dark" ? "light" : "dark";
-  d.setAttribute("data-theme", next);
-  try { localStorage.setItem("sm-summary-theme", next); } catch {}
+function toggleTheme(){
+  const d=document.documentElement,next=d.getAttribute("data-theme")==="dark"?"light":"dark";
+  d.setAttribute("data-theme",next);
+  try{localStorage.setItem("sm-viz-theme",next);}catch{}
 }
-try {
-  const s = localStorage.getItem("sm-summary-theme");
-  if (s) document.documentElement.setAttribute("data-theme", s);
-} catch {}
+try{const s=localStorage.getItem("sm-viz-theme");if(s)document.documentElement.setAttribute("data-theme",s);}catch{}
 </script>
 </body>
 </html>
