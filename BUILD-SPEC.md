@@ -1,7 +1,7 @@
 # Skill Manager - Build Spec (core logic + server)
 
 You are building the core of a local skills-management app. The project is at
-C:\Users\Rahil\Documents\9. Projects\skill-manager (already scaffolded: package.json,
+<repo-root> (already scaffolded: package.json,
 tsconfig.json, src/scanner.ts stub). Work ONLY inside this project. TypeScript, no
 external dependencies (Node built-ins only). Node runs TS directly via
 `node --experimental-strip-types` - so use plain ESM TypeScript WITHOUT decorators,
@@ -22,11 +22,11 @@ copies are duplicated, drifted, or out of date.
 Export a SCAN_LOCATIONS array:
 
 ```ts
-{ name: "pi",        root: "C:/Users/Rahil/.pi/agent/skills" }
-{ name: "opencode",  root: "C:/Users/Rahil/.config/opencode/skills" }
-{ name: "claude",    root: "C:/Users/Rahil/.claude/skills" }
-{ name: "shared",    root: "C:/Users/Rahil/.agents/skills" }
-{ name: "repo",      root: "C:/Users/Rahil/Documents/9. Projects/agent-skills/skills", nested: true }
+{ name: "pi",        root: "~/.pi/agent/skills" }
+{ name: "opencode",  root: "~/.config/opencode/skills" }
+{ name: "claude",    root: "~/.claude/skills" }
+{ name: "shared",    root: "~/.agents/skills" }
+{ name: "repo",      root: "~/agent-skills/skills", nested: true }
 ```
 
 `nested: true` means skills live at <root>/<category>/<name>/SKILL.md (the repo layout);
@@ -55,7 +55,7 @@ Functions:
     - `drift` = multiple copies with different sha (the copies disagree)
     - For repo copies: `repoClean` = the on-disk SKILL.md matches git HEAD
       (run `git -C <repoRoot> show HEAD:<relpath>` and compare sha; repoRoot =
-      C:/Users/Rahil/Documents/9. Projects/agent-skills; relpath = skills/<category>/<name>/SKILL.md)
+      ~/agent-skills; relpath = skills/<category>/<name>/SKILL.md)
     - Summary stats: total skills (unique names), total copies, per-location counts,
       counts of duplicate/drift/unique names, oldest/newest mtime.
   - Return { generatedAt: ISO, stats, byName, locations: [{name, root, count}] }.
