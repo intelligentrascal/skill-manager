@@ -642,6 +642,17 @@ const server = createServer(
 			}
 			try {
 				const service = new GitUpstreamUpdateService();
+				const inv = getInventory();
+				const copies = inv.byName[name] || [];
+				// preview is read-only: any local copy works as the current baseline
+				// (apply still requires a repo mirror - reported honestly)
+				const baseline =
+					copies.find((c) => c.location === "repo") || copies[0];
+				if (!baseline) {
+					res.writeHead(404, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({ error: "no local copy of this skill to preview against" }));
+					return;
+				}
 				const preview = await service.preview({
 					skillId: name,
 					source: {
@@ -650,10 +661,24 @@ const server = createServer(
 						pinnedRevision: identity.pinnedRevision,
 					},
 					targetRevision: identity.pinnedRevision,
-					repoMirrorPath: join(repoRoot(), "skills"),
+					// the local mirror of THIS skill (repo copy preferred), not the whole skills dir
+					repoMirrorPath: dirname(baseline.path),
 				});
+				// honesty gate (review): report whether the baseline is actually a
+				// repo mirror - apply is impossible without one, and an installed
+				// copy must never be presented as the mirror
+				const isRepoMirror = baseline.location === "repo";
 				res.writeHead(200, { "Content-Type": "application/json" });
-				res.end(JSON.stringify(preview));
+				res.end(
+					JSON.stringify({
+						...preview,
+						applyAvailable: isRepoMirror,
+						baselineLocation: baseline.location,
+						note: isRepoMirror
+							? "baseline is the repo mirror - apply can proceed after acknowledgement"
+							: `baseline is an installed copy (${baseline.location}), not the repo mirror - adopt the skill into the repo before apply`,
+					}),
+				);
 			} catch (err) {
 				res.writeHead(500, { "Content-Type": "application/json" });
 				res.end(
