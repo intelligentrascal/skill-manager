@@ -184,6 +184,42 @@ interface SkillRecord {
   per agent (gated on evidence), conflict flags
 - Fleet: upstream check stays; STALE badges gain the action
 
+## 9. Performance investigation (phase P - tackled, not deferred)
+
+Symptom: first load takes ~7s; refresh re-scans and re-renders slowly.
+
+Method (measure, don't guess):
+1. Instrument the server scan: per-phase timing (walk, frontmatter parse,
+   hashing, git repoClean checks, body-index build)
+2. Instrument the client: inventory fetch, genome/matrix render, SSE refresh
+   path (full re-render vs incremental)
+3. Identify the dominant cost with numbers, not assumptions
+
+Known suspects (from observed behavior, to be confirmed):
+- cold scan: 258 skills x (file read + sha256 + git status for repo copies)
+- body-index build for search (reads every SKILL.md on first search)
+- genome render: 258 rows x 5 gene spans + ripple/class churn on refresh
+- SSE refresh triggering a full render instead of a targeted update
+
+Deliverable: root cause with before/after timing, the fix, and a regression
+check (refresh must stay fast after the fix). No premature optimization -
+profile first, fix the top cost.
+
+## 10. UI/UX redesign (final phase - LAST)
+
+Done at the very end, after the functional work (provenance, update flow,
+variants) so the redesign covers the FINAL feature set.
+
+- Method: the design-taste-frontend + hallmark skills (anti-slop direction,
+  established tokens preserved: restrained dark, amber accent, coral mutation,
+  monospace details)
+- Scope: genome wall, specimen tray (provenance + variants + compat + explain),
+  matrix, mutation queue, search, the new update flows
+- Visual verification loop: the vision-capable reviewer (multi-media-reviewer)
+  audits renders against intent; iterate until clean
+- Constraint: identical feature set, redesigned presentation. The
+  knowledge-first honesty carries into the UI - no decorative claims.
+
 ## 7. What V1 does NOT do (explicitly)
 
 - No three-way merge for variant rebases (conflict flags only)
