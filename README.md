@@ -56,6 +56,18 @@ Ask the useful question directly: why does agent X see skill Y? Per-agent answer
 
 ![Explain tray](docs/screenshots/explain-tray.png)
 
+### Provenance
+
+Every skill knows where it came from. A committed `skillmgr.yaml` records provenance (upstream / mine / promoted / upstream-edited), the canonical upstream URL + subpath, and pinned revisions. Frontmatter is only a suggested import - the manifest is the authority.
+
+### Upstream updates
+
+Third-party skills track their ORIGINAL sources, not just your repo. Preview a full-directory diff at a pinned revision, pass the security gate (typed acknowledgement when executables change), and apply with rollback. Never HEAD-guessing, never silent.
+
+### Variants
+
+A claude-only skill becomes usable on pi / opencode / codex as a linked variant: adapted per-agent (invocation fields dropped, guidance folded into the description, opencode triggers added), stored as full snapshots, deployed explicitly, and verified before it stays. Variants are linked - never drift, never duplicates.
+
 ## QUICK START
 
 ```bash
@@ -77,6 +89,8 @@ local inventory
 Genome Wall · Matrix · search · mutation queue
       ↓ apply documented runtime facts
 Portability · Explain
+      ↓ provenance from skillmgr.yaml
+Upstream updates · Variants · adaptation
 ```
 
 Skill Manager scans the standard Pi, OpenCode, Claude, shared, and repository locations. It parses each `SKILL.md`, hashes the full file, and groups copies by skill name:
@@ -84,8 +98,9 @@ Skill Manager scans the standard Pi, OpenCode, Claude, shared, and repository lo
 | Status | Meaning |
 | --- | --- |
 | `OK` | One copy, or multiple identical copies |
-| `DUP` | Identical copies installed where agents expect to find them |
-| `DRIFT` | Copies with the same name differ and need inspection |
+| `MIRROR` | Identical copies installed where agents expect to find them (healthy by design) |
+| `DRIFT` | Copies with the same name differ UNINTENTIONALLY and need inspection |
+| `VARIANT` | A registered adaptation for one agent - linked to the skill, never flagged |
 
 The repository copy also receives a `repoClean` check against `git HEAD`.
 

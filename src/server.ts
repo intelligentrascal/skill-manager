@@ -640,10 +640,10 @@ const server = createServer(
 				);
 				return;
 			}
-					try {
-					const service = new GitUpstreamUpdateService();
-					const preview = await service.preview({
-						skillId: name,
+			try {
+				const service = new GitUpstreamUpdateService();
+				const preview = await service.preview({
+					skillId: name,
 					source: {
 						url: identity.upstreamUrl,
 						subpath: identity.subpath || ".",
@@ -657,7 +657,9 @@ const server = createServer(
 			} catch (err) {
 				res.writeHead(500, { "Content-Type": "application/json" });
 				res.end(
-					JSON.stringify({ error: err instanceof Error ? err.message : "update preview failed" }),
+					JSON.stringify({
+						error: err instanceof Error ? err.message : "update preview failed",
+					}),
 				);
 			}
 			return;

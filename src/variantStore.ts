@@ -6,7 +6,14 @@
 // agent path) -> verify (compat re-check on the deployed copy). A variant that
 // fails verification is never left deployed.
 
-import { mkdirSync, readFileSync, writeFileSync, copyFileSync, rmSync, existsSync } from "node:fs";
+import {
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+	copyFileSync,
+	rmSync,
+	existsSync,
+} from "node:fs";
 import { join } from "node:path";
 import { adaptSkill, verifyAdaptation, type AdaptResult } from "./variant.ts";
 import type { AgentId } from "./compat.ts";
@@ -40,10 +47,7 @@ export function createVariant(
 }
 
 /** Deploy the stored variant to an agent discovery path (explicit target). */
-export function deployVariant(
-	storePath: string,
-	targetPath: string,
-): void {
+export function deployVariant(storePath: string, targetPath: string): void {
 	if (!existsSync(join(storePath, "SKILL.md"))) {
 		throw new Error(`No variant at ${storePath}`);
 	}

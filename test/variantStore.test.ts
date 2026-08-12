@@ -37,7 +37,9 @@ test("createVariant stores an adapted full snapshot in the sidecar store", () =>
 		assert.ok(stored);
 		assert.ok(!stored.includes("argument-hint"));
 		assert.ok(stored.includes("allowed-tools") === false || true); // canonical has none
-		assert.ok(artifact.storePath.startsWith(join(root, ".skillmgr", "variants")));
+		assert.ok(
+			artifact.storePath.startsWith(join(root, ".skillmgr", "variants")),
+		);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

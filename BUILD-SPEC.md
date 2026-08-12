@@ -158,3 +158,30 @@ First-class "why does agent X see skill Y": per-agent discovery resolution.
 - Suggestions: each compat issue carries suggestions[] (action, risk:
   low/medium/high, whyMayAlter) - advisory only, "remove field" flagged where
   it would change the authoring agent's behavior. No auto-apply.
+
+
+## A+B+C tracks (added 2026-08-12, collaborative build)
+
+Three parallel tracks, divided by agent strength and cross-reviewed:
+
+- **A - provenance manifest** (wR:p1): `src/manifest.ts` - skillmgr.yaml schema
+  (Provenance, SkillIdentity with upstreamUrl/subpath/pinnedRevision,
+  SkillVariant, SecurityReview), strict validation (version check, enum
+  validation, unknown-key rejection), `parseManifest` + `readManifestSync`.
+  Scanner integration: records get provenance from the manifest.
+  `GET /api/manifest`.
+- **B - update-from-upstream** (design-review): `src/update.ts` contract +
+  `src/updates.ts` implementation - `GitUpstreamUpdateService` (shallow clone
+  at pinned revision, snapshotDirectory, computeDiff with behaviorSignals,
+  assessSecurityGate with typed acknowledgement, staged apply + rollback).
+  `GET /api/update` is manifest-gated (honest 404 without a pinned identity).
+- **C - variant creation** (main): `src/variant.ts` pure adaptation rules
+  (per-agent: pi keeps allowed-tools + disable-model-invocation, opencode adds
+  triggers, claude-invocation fields dropped + guidance folded into a note,
+  carry-over honesty) + `src/variantStore.ts` (sidecar store under
+  .skillmgr/variants, deployVariant, verifyDeployedVariant, removeVariant).
+  `POST /api/variant` + `POST /api/variant/deploy`.
+- Verification loop (spec 4b): deployed variants are re-checked - removed
+  fields must be gone; failing variants never stay deployed.
+- Performance: batch git status (one call vs 223 spawns) - cold load
+  13.9s -> 0.57s.

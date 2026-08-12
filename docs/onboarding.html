@@ -134,7 +134,15 @@ footer{padding:30px 0 10px;color:var(--ink3);font-size:13px;border-top:1px solid
   </section>
 
   <section>
-    <h2><span class="n">07</span>API</h2>
+    <h2><span class="n">07</span>Provenance, updates, and variants</h2>
+    <p><strong>Provenance</strong> tracks where every skill came from. A committed <code>skillmgr.yaml</code> records upstream sources with pinned revisions, so third-party skills can be updated from their originals - not just from your repo. Frontmatter extraction is only a suggested import; the manifest is the authority.</p>
+    <p><strong>Upstream updates</strong> preview a full-directory diff at a pinned revision, gate on security changes (typed acknowledgement when executables appear), and apply with rollback. No HEAD-guessing, no silent overwrites.</p>
+    <p><strong>Variants</strong> adapt a claude-only skill for another agent: invocation fields are dropped, guidance folded into the description, and opencode-style triggers added where relevant. Variants are full snapshots, deployed explicitly, and verified before they stay - linked to the skill, never counted as drift or duplicates.</p>
+    <div class="tip"><strong>Activation state.</strong> The manifest schema, update engine, and variant pipeline are built and tested. Updates go live once a <code>skillmgr.yaml</code> declares pinned upstream sources for your third-party skills.</div>
+  </section>
+
+  <section>
+    <h2><span class="n">08</span>API</h2>
     <table>
       <tr><th>Endpoint</th><th>Returns</th></tr>
       <tr><td>GET /</td><td>the dashboard</td></tr>
