@@ -43,9 +43,23 @@ export interface AgentProfile {
 }
 
 /** The claude behavioral vocabulary: tool restrictions, invocation modes. */
-const CLAUDE_BEHAVIORAL = ["user-invocable", "argument-hint", "arguments", "context"];
+const CLAUDE_BEHAVIORAL = [
+	"user-invocable",
+	"argument-hint",
+	"arguments",
+	"context",
+];
 
-const METADATA = ["author", "homepage", "license", "version", "category", "tags", "metadata", "model"];
+const METADATA = [
+	"author",
+	"homepage",
+	"license",
+	"version",
+	"category",
+	"tags",
+	"metadata",
+	"model",
+];
 
 // Pi (this agent). Skills live in ~/.pi/agent/skills; pi reads name +
 // description and the SKILL.md body.
@@ -97,7 +111,18 @@ const CLAUDE: AgentProfile = {
 	],
 	ignores: [],
 	breaks: [],
-	silent: ["author", "homepage", "category", "domain", "role", "scope", "output-format", "related-skills", "hermes-tags", "hermes-category"],
+	silent: [
+		"author",
+		"homepage",
+		"category",
+		"domain",
+		"role",
+		"scope",
+		"output-format",
+		"related-skills",
+		"hermes-tags",
+		"hermes-category",
+	],
 	requires: ["description"],
 	notes: ["Executes scripts/ and reads references/; nested skills supported."],
 	confidence: "documented",
@@ -108,12 +133,21 @@ const CLAUDE: AgentProfile = {
 const CODEX: AgentProfile = {
 	id: "codex",
 	name: "Codex",
-	honors: ["name", "description", "model", "metadata", "category", "allowed-tools"],
+	honors: [
+		"name",
+		"description",
+		"model",
+		"metadata",
+		"category",
+		"allowed-tools",
+	],
 	ignores: CLAUDE_BEHAVIORAL,
 	breaks: [],
 	silent: METADATA,
 	requires: ["description"],
-	notes: ["Skill discovery paths may differ per project; verify before relying on it."],
+	notes: [
+		"Skill discovery paths may differ per project; verify before relying on it.",
+	],
 	confidence: "inferred",
 };
 
@@ -126,7 +160,9 @@ const OPENCODE: AgentProfile = {
 	breaks: [],
 	silent: METADATA,
 	requires: ["description"],
-	notes: ["Trigger conventions are opencode-specific; claude skill fields do not map."],
+	notes: [
+		"Trigger conventions are opencode-specific; claude skill fields do not map.",
+	],
 	confidence: "inferred",
 };
 
@@ -137,12 +173,19 @@ export const AGENT_IDS: AgentId[] = ["pi", "claude", "codex", "opencode"];
 /** Version of the knowledge base. Bump when profiles change. */
 export const PROFILE_VERSION = "1.1.0";
 
+export interface CompatSuggestion {
+	action: string;
+	risk: "low" | "medium" | "high";
+	whyMayAlter: string;
+}
+
 export interface CompatIssue {
 	field: string;
 	severity: "ignore" | "break" | "missing";
 	evidence: "documented" | "inferred";
 	note: string;
 	remediation: string;
+	suggestions: CompatSuggestion[];
 }
 
 export interface AgentCompat {
@@ -164,6 +207,55 @@ function remediationFor(field: string, profile: AgentProfile): string {
 	return `Drop or adapt '${field}' for ${profile.name} - its intent does not carry over`;
 }
 
+function suggestionsFor(
+	field: string,
+	profile: AgentProfile,
+	severity: string,
+): CompatSuggestion[] {
+	// Invocation vocabulary (argument-hint, user-invocable, arguments, context):
+	// the intent is interactive invocation on claude. Removing the field is safe
+	// for the OTHER agent but changes claude's behavior - flag that.
+	if (CLAUDE_BEHAVIORAL.includes(field)) {
+		return [
+			{
+				action: `Remove '${field}' from the ${profile.name} copy, or leave it in the claude copy only`,
+				risk: "medium",
+				whyMayAlter: `Claude still honors '${field}' - removing it from a shared SKILL.md changes claude's invocation behavior`,
+			},
+			{
+				action: `Fold the intent into the description for ${profile.name}`,
+				risk: "low",
+				whyMayAlter: "The model still sees the guidance, just not as structured metadata",
+			},
+		];
+	}
+	if (field === "allowed-tools") {
+		return [
+			{
+				action: "Express the tool restriction in the skill body instead of allowed-tools",
+				risk: "high",
+				whyMayAlter: "Allowed-tools is a hard restriction on claude; body text is advisory everywhere",
+			},
+		];
+	}
+	if (severity === "missing") {
+		return [
+			{
+				action: `Add a ${field} field to the frontmatter`,
+				risk: "low",
+				whyMayAlter: "Discovery and selection depend on it - adding it improves routing everywhere",
+			},
+		];
+	}
+	return [
+		{
+			action: `Drop or adapt '${field}' for ${profile.name}`,
+			risk: "medium",
+			whyMayAlter: "Its intent does not carry over - keeping it has no effect on this agent",
+		},
+	];
+}
+
 function assessAgent(fields: string[], profile: AgentProfile): AgentCompat {
 	const issues: CompatIssue[] = [];
 	for (const field of fields) {
@@ -174,6 +266,7 @@ function assessAgent(fields: string[], profile: AgentProfile): AgentCompat {
 				evidence: profile.confidence,
 				note: `${profile.name} breaks on frontmatter field '${field}'`,
 				remediation: remediationFor(field, profile),
+				suggestions: suggestionsFor(field, profile, "break"),
 			});
 		} else if (profile.ignores.includes(field)) {
 			issues.push({
@@ -182,6 +275,7 @@ function assessAgent(fields: string[], profile: AgentProfile): AgentCompat {
 				evidence: profile.confidence,
 				note: `${profile.name} ignores '${field}' - the intent is lost here`,
 				remediation: remediationFor(field, profile),
+				suggestions: suggestionsFor(field, profile, "ignore"),
 			});
 		}
 	}
@@ -197,6 +291,7 @@ function assessAgent(fields: string[], profile: AgentProfile): AgentCompat {
 						: "discovery suffers without it"
 				}`,
 				remediation: `Add a ${required} field to the frontmatter`,
+				suggestions: suggestionsFor(required, profile, "missing"),
 			});
 		}
 	}
@@ -220,9 +315,17 @@ export interface CompatReport {
 	generatedAt: string;
 	skills: SkillCompat[];
 	summary: {
-		byAgent: Record<AgentId, { ok: number; warn: number; incompatible: number }>;
+		byAgent: Record<
+			AgentId,
+			{ ok: number; warn: number; incompatible: number }
+		>;
 		/** aggregated by issue code (agent + field), e.g. "pi ignores argument-hint: 101". */
-		byIssueCode: { agent: AgentId; field: string; severity: string; count: number }[];
+		byIssueCode: {
+			agent: AgentId;
+			field: string;
+			severity: string;
+			count: number;
+		}[];
 		anyIssue: number;
 		skillsWithIssues: string[];
 		unknownFieldCount: number;
@@ -247,12 +350,18 @@ export function compatReport(
 	}
 	skills.sort((a, b) => a.name.localeCompare(b.name));
 
-	const byAgent = {} as Record<AgentId, { ok: number; warn: number; incompatible: number }>;
+	const byAgent = {} as Record<
+		AgentId,
+		{ ok: number; warn: number; incompatible: number }
+	>;
 	for (const id of AGENT_IDS) {
 		byAgent[id] = { ok: 0, warn: 0, incompatible: 0 };
 	}
 	const skillsWithIssues: string[] = [];
-	const issueCodes = new Map<string, { agent: AgentId; field: string; severity: string; count: number }>();
+	const issueCodes = new Map<
+		string,
+		{ agent: AgentId; field: string; severity: string; count: number }
+	>();
 	let unknownFieldCount = 0;
 	for (const skill of skills) {
 		const hasIssue = Object.values(skill.agents).some((a) => a.status !== "ok");
@@ -282,9 +391,7 @@ export function compatReport(
 		skills,
 		summary: {
 			byAgent,
-			byIssueCode: [...issueCodes.values()].sort(
-				(a, b) => b.count - a.count,
-			),
+			byIssueCode: [...issueCodes.values()].sort((a, b) => b.count - a.count),
 			anyIssue: skillsWithIssues.length,
 			skillsWithIssues,
 			unknownFieldCount,

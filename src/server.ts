@@ -3,12 +3,14 @@ import {
 	type IncomingMessage,
 	type ServerResponse,
 } from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scanAll } from "./scanner.ts";
 import { checkUpstream } from "./upstream.ts";
-import { compatReport } from "./compat.ts";
+import { compatReport, AGENT_IDS } from "./compat.ts";
+import { resolveExplain } from "./discovery.ts";
+import { DISCOVERY_PROFILES } from "./discoveryProfiles.ts";
 import { buildHealthActions } from "./health.ts";
 import { renderSnapshot } from "./snapshot.ts";
 import { previewSyncFromRepo, SyncError, syncFromRepo } from "./sync.ts";
@@ -393,6 +395,75 @@ const server = createServer(
 			const report = compatReport(inv.byName);
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify(report));
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/explain") {
+			// First-class explain: per-agent verdicts of how (and whether) this
+			// runtime discovers the skill, plus compatibility. Reason codes are
+			// the stable contract; prose is rendered UI-side.
+			const name = url.searchParams.get("name");
+			if (!name) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing ?name parameter" }));
+				return;
+			}
+			const inv = getInventory();
+			const copies = inv.byName[name];
+			if (!copies || copies.length === 0) {
+				res.writeHead(404, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Skill not found" }));
+				return;
+			}
+			const compat = compatReport(inv.byName).skills.find(
+				(s) => s.name === name,
+			);
+			const home =
+				process.platform === "win32" && process.env.USERPROFILE
+					? process.env.USERPROFILE
+					: process.env.HOME || process.env.USERPROFILE || "";
+			const agents = {} as Record<string, unknown>;
+			for (const id of AGENT_IDS) {
+				const profile = DISCOVERY_PROFILES[id];
+				// filesystem probe: mark which discovery paths actually exist
+				if (profile) {
+					for (const p of profile.paths) {
+						const resolved = p.path.replace(/^~/, home);
+						if (!resolved.includes(":") && !resolved.startsWith("--")) {
+							try {
+								p.exists = statSync(resolved).isDirectory();
+							} catch {
+								p.exists = false;
+							}
+						}
+					}
+					profile.checkedAt = new Date().toISOString();
+				}
+				agents[id] = {
+					...resolveExplain(id, profile, copies, home),
+					profile: profile
+						? {
+								runtimeVersion: profile.runtimeVersion,
+								evidence: profile.evidence,
+								checkedAt: profile.checkedAt,
+								paths: profile.paths.map((p) => ({
+									path: p.path,
+									kind: p.kind,
+									exists: p.exists,
+								})),
+						  }
+						: undefined,
+					compatibility: compat?.agents[id] ?? null,
+				};
+			}
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(
+				JSON.stringify({
+					name,
+					generatedAt: new Date().toISOString(),
+					agents,
+				}),
+			);
 			return;
 		}
 

@@ -59,7 +59,12 @@ test("pi honors allowed-tools and disable-model-invocation (source-validated)", 
 	const report = compatReport({
 		"pi-native": [
 			{
-				fields: ["name", "description", "allowed-tools", "disable-model-invocation"],
+				fields: [
+					"name",
+					"description",
+					"allowed-tools",
+					"disable-model-invocation",
+				],
 				location: "pi",
 			},
 		],
@@ -114,8 +119,12 @@ test("union of fields across copies is used", () => {
 test("summary counts and issue-code aggregation are consistent", () => {
 	const report = compatReport({
 		a: [{ fields: ["name", "description"], location: "pi" }],
-		b: [{ fields: ["name", "description", "argument-hint"], location: "claude" }],
-		c: [{ fields: ["name", "description", "argument-hint"], location: "claude" }],
+		b: [
+			{ fields: ["name", "description", "argument-hint"], location: "claude" },
+		],
+		c: [
+			{ fields: ["name", "description", "argument-hint"], location: "claude" },
+		],
 	});
 	assert.equal(report.skills.length, 3);
 	assert.equal(report.summary.anyIssue, 2);
@@ -126,7 +135,10 @@ test("summary counts and issue-code aggregation are consistent", () => {
 	const argHint = report.summary.byIssueCode.filter(
 		(ic) => ic.field === "argument-hint",
 	);
-	assert.equal(argHint.reduce((sum, ic) => sum + ic.count, 0), 6);
+	assert.equal(
+		argHint.reduce((sum, ic) => sum + ic.count, 0),
+		6,
+	);
 });
 
 test("report carries a profile version", () => {
@@ -145,7 +157,12 @@ test("every skill gets all four agents with a valid status", () => {
 });
 
 test("all non-claude profiles ignore the claude invocation vocabulary", () => {
-	const claudeBehavioral = ["user-invocable", "argument-hint", "arguments", "context"];
+	const claudeBehavioral = [
+		"user-invocable",
+		"argument-hint",
+		"arguments",
+		"context",
+	];
 	for (const profile of AGENT_PROFILES) {
 		if (profile.id === "claude") continue;
 		for (const field of claudeBehavioral) {

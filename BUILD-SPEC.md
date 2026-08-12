@@ -127,3 +127,34 @@ guessing.
   pi/codex/opencode (68 skills).
 - Phase 2 (not built): runtime probes to verify `inferred` profiles
   (codex, opencode) and upgrade confidence.
+
+## Explain engine (added 2026-08-12)
+
+First-class "why does agent X see skill Y": per-agent discovery resolution.
+
+- `src/discovery.ts` - shared schema + pure resolver (schema owned centrally to
+  avoid contested merge hotspots).
+  - Evidence = documented | inferred | unknown; Integrity = matching | drifted |
+    unmanaged | unknown.
+  - DiscoveryProfile { agent, runtimeVersion, evidence, checkedAt, paths[],
+    precedence[], notes[] }; DiscoveryPath { path, kind: global | project |
+    trusted-project | package | explicit, env?, exists?, notes? }.
+  - Matching is by RESOLVED PATH PREFIX (normalized separators), never by
+    location name - pi scans ~/.pi/agent/skills and ~/.agents/skills, not
+    ~/.claude/skills.
+  - reasonCode is the stable API contract (found-global | found-project |
+    found-trusted-project | found-package | found-explicit | not-found |
+    blocked-* | unknown-no-profile); verdict prose is UI-side.
+  - Integrity measured against the repo source (matching/drifted); unmanaged
+    when no repo copy exists.
+- `src/discoveryProfiles.ts` - per-agent facts. Pi facts contributed by the
+  pi-side review, validated against Pi 0.84.1 docs/skills.md (global +
+  trusted-project + package + explicit sources, precedence, --no-skills and
+  collision semantics). Claude documented; codex/opencode inferred (honest).
+- `GET /api/explain?name=X` - filesystem probe (exists flags on discovery
+  paths), resolution per agent, plus the compat report for the skill.
+- Windows specifics: HOME can be git-bash style (/c/...) - prefer USERPROFILE
+  on win32; normalize backslashes before prefix matching.
+- Suggestions: each compat issue carries suggestions[] (action, risk:
+  low/medium/high, whyMayAlter) - advisory only, "remove field" flagged where
+  it would change the authoring agent's behavior. No auto-apply.

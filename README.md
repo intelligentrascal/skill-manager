@@ -93,7 +93,13 @@ Open the URL. That's it.
 - **Full-text search** - search across SKILL.md bodies too: "which skills mention playwright?" gets a literal answer with highlighted snippets.
 - **Portability (compat)** - knowledge-first: what each agent actually does with a skill's frontmatter.
 
-![Portability view](docs/screenshots/portability-view.png) Which skills carry claude invocation fields (argument-hint, user-invocable...) that pi/codex/opencode silently ignore - with evidence, confidence, and remediation per issue.
+![Portability view](docs/screenshots/portability-view.png)
+
+### Explain - who sees this skill
+
+The signature answer: why does agent X see skill Y, and what would it actually run? Per-agent verdicts with evidence - including the negative case ("codex does NOT see this: no copy in its scan paths").
+
+![Explain tray](docs/screenshots/explain-tray.png) Which skills carry claude invocation fields (argument-hint, user-invocable...) that pi/codex/opencode silently ignore - with evidence, confidence, and remediation per issue.
 - **Full inventory** - scans 5 locations, parses frontmatter, builds one view
 - **Status model** per skill name:
   - `OK` - a single copy, or multiple identical copies
