@@ -18,7 +18,48 @@ Claude, shared, and your source repo - parses each `SKILL.md`, and tells you:
 
 Zero dependencies. Node built-ins only. Runs entirely on your machine.
 
-![Skill Manager](https://artifacts.aarr.dev/sm-dashboard.png)
+## Features
+
+### The Skill Genome
+
+Every skill is a five-location strip (pi, opencode, claude, shared, repo).
+Continuous = your copies agree. A coral, cracked gene = drift, at a glance.
+
+![Genome wall](docs/screenshots/genome-wall.png)
+
+### Watch mode - the ripple
+
+Live re-scan + SSE. When a skill copy changes, its strip ripples once, then
+settles - you see exactly what moved.
+
+![Watch ripple](docs/screenshots/watch-ripple.gif)
+
+### Mutation queue
+
+Every drift and uncommitted-repo skill, as an actionable list. Click to inspect.
+
+![Mutation queue](docs/screenshots/mutation-queue.png)
+
+### Matrix view
+
+The whole estate as a dense skill x harness table. Status-colored cells:
+healthy, mutated, absent. Genome | Matrix | List toggles.
+
+![Matrix view](docs/screenshots/matrix-view.png)
+
+### Full-text search
+
+Search across SKILL.md bodies, not just names - "which skills mention
+playwright?" gets a literal answer with highlighted snippets.
+
+![Full-text search](docs/screenshots/body-search.png)
+
+### Specimen tray
+
+Click any genome: the exact drift diff, the repo source, the affected copies,
+and one-click healing (preview, then confirm).
+
+![Specimen tray](docs/screenshots/specimen-tray.png)
 
 ## Why
 
