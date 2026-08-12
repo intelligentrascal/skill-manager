@@ -85,6 +85,49 @@ Decisions:
 - Rebase: each variant keeps its base revision; update rebase = flag
   conflicts, never auto-merge (D-rebase).
 
+### 4a. Per-agent adaptation rules (claude-only -> pi / opencode / codex)
+
+Adaptation is NOT "make it identical everywhere" - it is "make it usable and
+honest on the target" (native semantics over fake portability). The rules are
+driven by the same knowledge base as the compat engine (documented vs
+inferred):
+
+| target | what changes | evidence |
+| --- | --- | --- |
+| pi | drop claude invocation fields (argument-hint, user-invocable, arguments, context); ensure a pi-discoverable description (required, reasonable length); fold invocation guidance into the description/body; keep allowed-tools + disable-model-invocation (pi honors both) | documented |
+| opencode | same field drops; optionally add opencode-style triggers to the frontmatter (opencode honors triggers); description must be discoverable | inferred |
+| codex | same field drops; no codex-specific conventions known yet - the variant is the stripped-down core skill | inferred |
+
+Rules that always apply:
+
+- The variant starts from the upstream content, applies the target's
+  adaptation rules, and is stored as a FULL snapshot in the sidecar store.
+- What does NOT adapt (flagged, never silently dropped): nested skills,
+  allowed-tool restrictions with no target equivalent, scripts the target
+  cannot execute, MCP references - shown as a "does not carry over" list in
+  the variant preview.
+- The variant's description is checked for discovery quality on the target
+  (length, uniqueness vs the other copies - the portability lint's routing
+  checks, section 16 of the product spec).
+
+### 4b. Verification loop (adapt -> verify -> keep)
+
+After deploying a variant:
+
+1. Re-run the compat engine against the variant copy - the field issues that
+  triggered creation must be GONE (e.g. pi no longer warns on argument-hint
+  because the variant no longer carries it).
+2. Re-run discovery (explain) for the target agent - the variant is the
+  winner at its deployment path.
+3. Show the before/after: original compat status -> variant compat status,
+  and the "does not carry over" list.
+4. If verification fails (a field still warns, discovery misses), the
+  variant is marked failed and NOT kept as deployed - revert to the
+  pre-variant state.
+
+A variant that passes stays as the deployed copy for that agent; upstream
+updates then rebase onto it with conflict flags (never auto-merge).
+
 ## 5. Data model
 
 ```ts
