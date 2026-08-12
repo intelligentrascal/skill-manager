@@ -1,6 +1,10 @@
 # Skill Manager
 
-**Know what skills your agents have, where they live, and whether they drifted.**
+**The Skill Genome - know what skills your agents have, where they live, and whether they drifted.**
+
+Every skill is a living genome: a five-location strip (pi - opencode - claude - shared - repo) that stays
+continuous when your copies agree and visibly breaks when they drift. Health at a glance, no dashboards to
+decode. Click any genome for a specimen tray - the exact diff, the source, and one-click healing.
 
 Skill Manager is a local-first dashboard for the skills spread across your AI
 coding agents. It scans every skill directory on your machine - Pi, OpenCode,
@@ -39,6 +43,10 @@ Open the URL. That's it.
 
 ## Features
 
+- **The Skill Genome** - a living wall where every skill is a five-location genome strip (pi · opencode · claude · shared · repo). Continuous = healthy; coral cracked genes = drift, at a glance.
+- **Specimen tray** - click any genome to expand: the exact diff, the repo source, the affected copies, and one-click healing (preview, then confirm).
+- **Mutation queue** - every drift / uncommitted-repo skill as an actionable list.
+- **Watch mode** - live re-scan + SSE; changed genome strips ripple once, then settle.
 - **Full inventory** - scans 5 locations, parses frontmatter, builds one view
 - **Status model** per skill name:
   - `OK` - a single copy, or multiple identical copies

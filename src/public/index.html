@@ -20,6 +20,10 @@
         --bad: #e26d5a;
         --info: #6db3f2;
         --accent: #e8b44a;
+        --genome-fill: #b9c7d5;
+        --genome-empty: #1a222c;
+        --mutation: #e47a67;
+        --mutation-glow: rgba(228, 122, 103, 0.28);
         --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       [data-theme="light"] {
@@ -37,6 +41,10 @@
         --bad: #c24534;
         --info: #2f6fb0;
         --accent: #a8760f;
+        --genome-fill: #536579;
+        --genome-empty: #e9edf2;
+        --mutation: #ca5d4d;
+        --mutation-glow: rgba(202, 93, 77, 0.2);
       }
       * {
         box-sizing: border-box;
@@ -242,6 +250,153 @@
         background: var(--ink);
         color: var(--bg);
         border-color: var(--ink);
+      }
+      .view-toggle {
+        display: inline-flex;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+      }
+      .view-toggle button {
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--ink3);
+        cursor: pointer;
+        font: 700 10px var(--mono);
+        letter-spacing: 0.08em;
+        padding: 6px 9px;
+        text-transform: uppercase;
+      }
+      .view-toggle button[aria-pressed="true"] {
+        background: var(--card2);
+        color: var(--ink);
+      }
+      .genome-wall {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .genome-row {
+        display: grid;
+        grid-template-columns: minmax(170px, 1.3fr) minmax(160px, 1fr) 62px;
+        align-items: center;
+        gap: 26px;
+        min-height: 62px;
+        padding: 11px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg2);
+        cursor: pointer;
+        transition: background 140ms ease;
+      }
+      .genome-row:last-child {
+        border-bottom: 0;
+      }
+      .genome-row:hover,
+      .genome-row:focus-visible {
+        background: var(--card);
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+      .genome-name {
+        min-width: 0;
+      }
+      .genome-name strong {
+        display: block;
+        overflow: hidden;
+        color: var(--ink);
+        font: 700 13px/1.35 var(--mono);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .genome-name small {
+        display: block;
+        margin-top: 2px;
+        overflow: hidden;
+        color: var(--ink3);
+        font-size: 10.5px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .genome-track {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 3px;
+        width: min(100%, 164px);
+        height: 15px;
+        padding: 2px 0;
+      }
+      .gene {
+        position: relative;
+        min-width: 0;
+        border-radius: 2px;
+        background: var(--genome-empty);
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .gene.present {
+        background: var(--genome-fill);
+        box-shadow: none;
+      }
+      .gene.mutated {
+        transform: translateY(2px);
+        background: linear-gradient(
+          112deg,
+          var(--mutation) 0 43%,
+          var(--bg) 44% 50%,
+          var(--mutation) 51% 100%
+        );
+        box-shadow:
+          0 0 0 1px var(--mutation),
+          0 0 13px var(--mutation-glow);
+      }
+      .gene::after {
+        position: absolute;
+        top: 21px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--ink3);
+        content: attr(data-location);
+        font: 7px/1 var(--mono);
+        letter-spacing: -0.03em;
+        text-transform: uppercase;
+      }
+      .genome-signal {
+        justify-self: end;
+        color: var(--ink3);
+        font: 800 9px var(--mono);
+        letter-spacing: 0.07em;
+      }
+      .genome-signal.drift {
+        color: var(--mutation);
+      }
+      .genome-signal.duplicate {
+        color: var(--warn);
+      }
+      .genome-track.pulse::before {
+        position: absolute;
+        z-index: -1;
+        inset: -10px -12px;
+        border: 1px solid var(--mutation);
+        border-radius: 7px;
+        content: "";
+        animation: genome-ripple 800ms ease-out both;
+        pointer-events: none;
+      }
+      @keyframes genome-ripple {
+        0% {
+          opacity: 0;
+          transform: scaleX(0.86);
+        }
+        28% {
+          opacity: 0.85;
+        }
+        100% {
+          opacity: 0;
+          transform: scaleX(1.08);
+        }
       }
       .rows {
         border: 1px solid var(--line);
@@ -512,11 +667,25 @@
         letter-spacing: 0.05em;
       }
       @media (max-width: 640px) {
+        .genome-row {
+          grid-template-columns: minmax(0, 1fr) 164px 44px;
+          gap: 12px;
+          padding: 12px;
+        }
+        .genome-name small {
+          display: none;
+        }
         .row {
           grid-template-columns: 1fr;
         }
         .row .ds {
           white-space: normal;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .genome-track.pulse::before {
+          animation: none;
+          opacity: 0.5;
         }
       }
     </style>
@@ -540,11 +709,20 @@
         <div id="healthItems"></div>
       </section>
       <div class="controls">
+        <div class="view-toggle" aria-label="Inventory view">
+          <button id="genomeViewBtn" type="button" aria-pressed="true">
+            Genome
+          </button>
+          <button id="listViewBtn" type="button" aria-pressed="false">
+            List
+          </button>
+        </div>
         <input id="q" placeholder="search skills..." autocomplete="off" />
         <div class="chips" id="harnessChips"></div>
         <div class="chips" id="statusChips"></div>
       </div>
-      <div class="rows" id="rows"></div>
+      <div class="genome-wall" id="genomeWall"></div>
+      <div class="rows" id="rows" hidden></div>
       <footer id="foot"></footer>
     </div>
     <div id="drawer">
@@ -563,6 +741,8 @@
       let q = "";
       let harness = "all";
       let status = "all";
+      let view = "genome";
+      let pulseNames = new Set();
       const HARNESSES = ["pi", "opencode", "claude", "shared", "repo"];
 
       function el(tag, cls, text) {
@@ -572,13 +752,36 @@
         return n;
       }
 
-      async function load() {
+      function inventorySignatures(inventory) {
+        const signatures = new Map();
+        if (!inventory) return signatures;
+        for (const [name, copies] of Object.entries(inventory.byName || {})) {
+          signatures.set(
+            name,
+            copies
+              .map((copy) => copy.location + ":" + copy.sha)
+              .sort()
+              .join("|"),
+          );
+        }
+        return signatures;
+      }
+
+      async function load({ pulse = false } = {}) {
+        const previous = inventorySignatures(DATA);
         const [inventoryResponse, actionsResponse] = await Promise.all([
           fetch("/api/inventory"),
           fetch("/api/actions"),
         ]);
         DATA = await inventoryResponse.json();
         ACTIONS = (await actionsResponse.json()).actions || [];
+        pulseNames = new Set();
+        if (pulse) {
+          const next = inventorySignatures(DATA);
+          for (const [name, signature] of next) {
+            if (previous.get(name) !== signature) pulseNames.add(name);
+          }
+        }
         document.getElementById("gen").textContent =
           "generated " +
           (DATA.generatedAt || "").replace("T", " ").slice(0, 19);
@@ -587,6 +790,7 @@
         renderStats();
         renderHealthActions();
         render();
+        if (pulseNames.size) requestAnimationFrame(pulseChangedGenomes);
       }
 
       function renderHarnessChips() {
@@ -702,11 +906,8 @@
             : "unique";
       }
 
-      function render() {
-        const rows = document.getElementById("rows");
-        rows.textContent = "";
-        if (!DATA) return;
-        const names = Object.keys(DATA.byName)
+      function visibleNames() {
+        return Object.keys(DATA.byName)
           .filter((name) => {
             const copies = DATA.byName[name];
             if (status !== "all" && statusOf(name) !== status) return false;
@@ -723,12 +924,71 @@
             return !q || hay.includes(q);
           })
           .sort();
-        if (names.length === 0) {
-          rows.appendChild(el("div", "empty", "NO SKILLS MATCH"));
+      }
+
+      function setView(nextView) {
+        view = nextView;
+        document.getElementById("genomeWall").hidden = view !== "genome";
+        document.getElementById("rows").hidden = view !== "list";
+        document
+          .getElementById("genomeViewBtn")
+          .setAttribute("aria-pressed", String(view === "genome"));
+        document
+          .getElementById("listViewBtn")
+          .setAttribute("aria-pressed", String(view === "list"));
+        render();
+      }
+
+      function renderGenomeRow(name, copies) {
+        const source =
+          copies.find((copy) => copy.location === "repo") || copies[0];
+        const st = statusOf(name);
+        const row = el("button", "genome-row");
+        row.type = "button";
+        row.dataset.name = name;
+        const label = el("span", "genome-name");
+        label.appendChild(el("strong", "", name));
+        label.appendChild(
+          el(
+            "small",
+            "",
+            (copies[0].description || "uncategorized").slice(0, 72),
+          ),
+        );
+        const track = el("span", "genome-track");
+        for (const location of HARNESSES) {
+          const copy = copies.find((item) => item.location === location);
+          const gene = el("span", "gene" + (copy ? " present" : ""));
+          gene.dataset.location = location;
+          if (copy && copy.sha !== source.sha) gene.classList.add("mutated");
+          track.appendChild(gene);
+        }
+        const signal = el(
+          "span",
+          "genome-signal " + st,
+          st === "drift" ? "DRIFT" : st === "duplicate" ? "DUP" : "OK",
+        );
+        row.append(label, track, signal);
+        row.addEventListener("click", () => openSkill(name));
+        return row;
+      }
+
+      function render() {
+        if (!DATA) return;
+        const rows = document.getElementById("rows");
+        const wall = document.getElementById("genomeWall");
+        const names = visibleNames();
+        rows.textContent = "";
+        wall.textContent = "";
+        if (!names.length) {
+          const empty = el("div", "empty", "NO SKILLS MATCH");
+          (view === "genome" ? wall : rows).appendChild(empty);
+          document.getElementById("foot").textContent = "0 skills shown";
           return;
         }
         for (const name of names) {
           const copies = DATA.byName[name];
+          wall.appendChild(renderGenomeRow(name, copies));
           const st = statusOf(name);
           const row = el("div", "row");
           row.dataset.name = name;
@@ -745,15 +1005,35 @@
           }
           const badgeCls =
             st === "drift" ? "b-bad" : st === "duplicate" ? "b-warn" : "b-good";
-          const badgeLabel =
-            st === "drift" ? "DRIFT" : st === "duplicate" ? "DUP" : "OK";
-          const badge = el("span", "badge " + badgeCls, badgeLabel);
+          const badge = el(
+            "span",
+            "badge " + badgeCls,
+            st === "drift" ? "DRIFT" : st === "duplicate" ? "DUP" : "OK",
+          );
           row.append(nm, ds, hw, badge);
           row.addEventListener("click", () => openSkill(name));
           rows.appendChild(row);
         }
         document.getElementById("foot").textContent =
-          names.length + " skills shown · click a row for details";
+          names.length + " skills shown · click a genome for details";
+      }
+
+      function pulseChangedGenomes() {
+        for (const name of pulseNames) {
+          const row = Array.from(document.querySelectorAll(".genome-row")).find(
+            (element) => element.dataset.name === name,
+          );
+          const track = row && row.querySelector(".genome-track");
+          if (!track) continue;
+          track.classList.remove("pulse");
+          void track.offsetWidth;
+          track.classList.add("pulse");
+          track.addEventListener(
+            "animationend",
+            () => track.classList.remove("pulse"),
+            { once: true },
+          );
+        }
       }
 
       // Minimal LCS-based line diff - returns {mark, line}[] with + - space markers.
@@ -1040,6 +1320,12 @@
       document.getElementById("drawerClose").addEventListener("click", () => {
         document.getElementById("drawer").classList.remove("open");
       });
+      document
+        .getElementById("genomeViewBtn")
+        .addEventListener("click", () => setView("genome"));
+      document
+        .getElementById("listViewBtn")
+        .addEventListener("click", () => setView("list"));
       document.getElementById("q").addEventListener("input", (e) => {
         q = e.target.value.trim().toLowerCase();
         render();
@@ -1099,7 +1385,7 @@
         const events = new EventSource("/api/events");
         events.addEventListener("inventory", () => {
           document.getElementById("gen").textContent = "live - refreshing...";
-          load();
+          load({ pulse: true });
         });
       } catch {
         // SSE unsupported - manual refresh still works
