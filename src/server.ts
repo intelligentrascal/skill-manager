@@ -646,11 +646,14 @@ const server = createServer(
 				const copies = inv.byName[name] || [];
 				// preview is read-only: any local copy works as the current baseline
 				// (apply still requires a repo mirror - reported honestly)
-				const baseline =
-					copies.find((c) => c.location === "repo") || copies[0];
+				const baseline = copies.find((c) => c.location === "repo") || copies[0];
 				if (!baseline) {
 					res.writeHead(404, { "Content-Type": "application/json" });
-					res.end(JSON.stringify({ error: "no local copy of this skill to preview against" }));
+					res.end(
+						JSON.stringify({
+							error: "no local copy of this skill to preview against",
+						}),
+					);
 					return;
 				}
 				const preview = await service.preview({
