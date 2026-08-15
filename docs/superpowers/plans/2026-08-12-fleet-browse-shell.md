@@ -261,9 +261,11 @@ node -e "const d=require('/tmp/skill-manager-inventory.json'); if (!d.stats || !
 
 Expected: HTTP 200 responses and a nonzero skill count.
 
-- [x] **Step 3: Run browser smoke test**
+- [ ] **Step 3: Run browser smoke test**
 
 Open `http://127.0.0.1:7788`, activate Fleet, Browse, and Attention, search for an existing skill, open its tray, then confirm no console errors and that the sync action still asks for confirmation before a write.
+
+> Not completed: Orca could inspect Brave but could not focus it for keyboard input. Live HTTP and inline-script smoke tests passed; an interactive browser pass remains outstanding.
 
 - [x] **Step 4: Run final automated checks**
 
@@ -276,7 +278,7 @@ git status --short
 
 Expected: tests and typecheck pass, diff check is empty, and only intended tracked changes are present before the commit.
 
-- [ ] **Step 5: Commit any verification fix and push**
+- [x] **Step 5: Commit any verification fix and push**
 
 ```bash
 git push -u origin feat/fleet-browse-shell
