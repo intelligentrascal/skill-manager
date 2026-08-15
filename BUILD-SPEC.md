@@ -182,6 +182,6 @@ Three parallel tracks, divided by agent strength and cross-reviewed:
   .skillmgr/variants, deployVariant, verifyDeployedVariant, removeVariant).
   `POST /api/variant` + `POST /api/variant/deploy`.
 - Verification loop (spec 4b): deployed variants are re-checked - removed
-  fields must be gone; failing variants never stay deployed.
+  fields must be gone; a failure is reported, not automatically rolled back.
 - Performance: batch git status (one call vs 223 spawns) - cold load
   13.9s -> 0.57s.
