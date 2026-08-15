@@ -625,10 +625,10 @@
       }
       .row {
         display: grid;
-        grid-template-columns: minmax(170px, 0.7fr) minmax(
-            220px,
-            1.5fr
-          ) auto auto;
+        grid-template-columns: minmax(150px, 0.62fr) minmax(
+            180px,
+            1.4fr
+          ) auto auto auto;
         gap: 16px;
         align-items: center;
         padding: 12px 14px;
@@ -1005,6 +1005,125 @@
         font: 9.5px/1.4 var(--mono);
         letter-spacing: 0.04em;
       }
+      /* app-mode shell: two-column workspace with an accessible mode rail */
+      .workspace-shell {
+        display: grid;
+        grid-template-columns: 132px minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+      .mode-rail {
+        position: sticky;
+        top: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--bg-raised);
+      }
+      .mode-rail button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 34px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--ink-faint);
+        cursor: pointer;
+        font: 700 10px/1 var(--mono);
+        letter-spacing: 0.06em;
+        text-align: left;
+        text-transform: uppercase;
+        white-space: nowrap;
+        transition:
+          background 140ms ease,
+          color 140ms ease;
+      }
+      .mode-rail button:hover {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 6%, transparent);
+      }
+      .mode-rail button[aria-pressed="true"] {
+        background: var(--surface-selected);
+        color: var(--ink);
+      }
+      .attention-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: var(--line);
+        color: var(--ink-muted);
+        font: 800 9px/1 var(--mono);
+      }
+      .attention-count.has {
+        background: var(--mutation);
+        color: var(--bg);
+      }
+      /* attention mode isolates the mutation queue and hides the workbench */
+      .wrap[data-app-mode="attention"] .stats,
+      .wrap[data-app-mode="attention"] .controls,
+      .wrap[data-app-mode="attention"] #bodyResults,
+      .wrap[data-app-mode="attention"] .genome-wall,
+      .wrap[data-app-mode="attention"] .matrix,
+      .wrap[data-app-mode="attention"] #rows,
+      .wrap[data-app-mode="attention"] #foot {
+        display: none;
+      }
+      .attention-empty {
+        padding: 44px 20px;
+        text-align: center;
+      }
+      .attention-empty strong {
+        display: block;
+        color: var(--ink);
+        font: 650 13px/1.4 var(--mono);
+      }
+      .attention-empty small {
+        display: block;
+        margin-top: 8px;
+        color: var(--ink-faint);
+        font: 10.5px/1.5 var(--mono);
+      }
+      /* compact five-location genome strip for list rows */
+      .list-track {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 3px;
+        width: 74px;
+        height: 10px;
+      }
+      .list-track .gene {
+        height: 10px;
+        transform: none;
+        border-radius: 2px;
+        background: var(--genome-empty);
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .list-track .gene.present {
+        background: var(--genome-fill);
+        box-shadow: none;
+      }
+      .list-track .gene.mutated {
+        background: var(--mutation);
+        box-shadow: 0 0 6px var(--mutation-glow);
+      }
+      .list-track .gene.variant {
+        background: var(--variant);
+        box-shadow: 0 0 6px var(--variant-glow);
+      }
+      .list-track .gene::before,
+      .list-track .gene::after {
+        display: none;
+      }
       @media (max-width: 900px) {
         .head {
           grid-template-columns: 1fr auto;
@@ -1032,6 +1151,20 @@
         }
         .controls .chips {
           grid-column: auto;
+        }
+        .workspace-shell {
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+        .mode-rail {
+          position: static;
+          flex-direction: row;
+          align-items: center;
+          gap: 4px;
+        }
+        .mode-rail button {
+          flex: 1;
+          justify-content: center;
         }
       }
       @media (max-width: 640px) {
@@ -1118,6 +1251,10 @@
         .row .harnesses {
           grid-column: 1;
         }
+        .row .list-track {
+          grid-column: 1 / -1;
+          justify-self: start;
+        }
         .matrix {
           display: block;
           overflow-x: auto;
@@ -1157,7 +1294,7 @@
     </style>
   </head>
   <body>
-    <div class="wrap">
+    <div class="wrap" data-app-mode="fleet">
       <div class="head">
         <h1>Skill Manager</h1>
         <span class="st" id="gen">scanning...</span>
@@ -1167,8 +1304,22 @@
         <button id="upstreamBtn">Check upstreams</button>
         <button id="themeBtn">Theme</button>
       </div>
-      <div class="stats" id="stats"></div>
-      <section class="health" aria-labelledby="healthTitle">
+      <main class="workspace-shell">
+        <nav class="mode-rail" aria-label="App mode">
+          <button id="fleetModeBtn" type="button" aria-pressed="true">
+            Fleet
+          </button>
+          <button id="browseModeBtn" type="button" aria-pressed="false">
+            Browse
+          </button>
+          <button id="attentionModeBtn" type="button" aria-pressed="false">
+            Attention
+            <span class="attention-count" id="attentionCount">0</span>
+          </button>
+        </nav>
+        <div class="workspace">
+          <div class="stats" id="stats"></div>
+      <section class="health" id="health" aria-labelledby="healthTitle">
         <div class="health-head">
           <h2 id="healthTitle">Mutation queue</h2>
           <span id="healthMeta"></span>
@@ -1234,6 +1385,8 @@
       </table>
       <div class="rows" id="rows" hidden></div>
       <footer id="foot"></footer>
+        </div>
+      </main>
     </div>
     <div id="drawer">
       <div class="panel">
@@ -1253,6 +1406,7 @@
       let harness = "all";
       let status = "all";
       let view = "genome";
+      let appMode = "fleet";
       let pulseNames = new Set();
       let upstreamResults = {}; // name -> { stale, error } from /api/upstream-batch
       let COMPAT = null;
@@ -1389,22 +1543,35 @@
       }
 
       function renderHealthActions() {
+        const section = document.getElementById("health");
         const wrap = document.getElementById("healthItems");
         const meta = document.getElementById("healthMeta");
+        const count = document.getElementById("attentionCount");
         wrap.textContent = "";
         meta.textContent = ACTIONS.length
           ? ACTIONS.length + (ACTIONS.length === 1 ? " item" : " items")
           : "all clear";
+        count.textContent = String(ACTIONS.length);
+        count.classList.toggle("has", ACTIONS.length > 0);
         if (!ACTIONS.length) {
-          wrap.appendChild(
-            el(
-              "div",
-              "health-empty",
-              "No drift or uncommitted repo skills detected.",
-            ),
-          );
+          if (appMode === "attention") {
+            section.hidden = false;
+            const empty = el("div", "attention-empty");
+            empty.appendChild(el("strong", "", "Nothing needs attention."));
+            empty.appendChild(
+              el(
+                "small",
+                "",
+                "No drift, uncommitted repo copies, or stale upstreams are queued.",
+              ),
+            );
+            wrap.appendChild(empty);
+          } else {
+            section.hidden = true;
+          }
           return;
         }
+        section.hidden = false;
         for (const action of ACTIONS) {
           const item = el("button", "health-item");
           const badge = el(
@@ -1496,6 +1663,24 @@
         document
           .getElementById("listViewBtn")
           .setAttribute("aria-pressed", String(view === "list"));
+        render();
+      }
+
+      function setAppMode(mode) {
+        appMode = mode;
+        document.querySelector(".wrap").dataset.appMode = mode;
+        document
+          .getElementById("fleetModeBtn")
+          .setAttribute("aria-pressed", String(mode === "fleet"));
+        document
+          .getElementById("browseModeBtn")
+          .setAttribute("aria-pressed", String(mode === "browse"));
+        document
+          .getElementById("attentionModeBtn")
+          .setAttribute("aria-pressed", String(mode === "attention"));
+        if (mode === "fleet") setView("genome");
+        else if (mode === "browse") setView("list");
+        renderHealthActions();
         render();
       }
 
@@ -1677,6 +1862,8 @@
           const copies = DATA.byName[name];
           wall.appendChild(renderGenomeRow(name, copies));
           const st = statusOf(name);
+          const source =
+            copies.find((copy) => copy.location === "repo") || copies[0];
           const row = el("div", "row");
           row.dataset.name = name;
           const nm = el("div", "nm", name);
@@ -1685,6 +1872,16 @@
             "ds",
             (copies[0].description || "").slice(0, 110),
           );
+          const track = el("span", "list-track");
+          for (const location of HARNESSES) {
+            const copy = copies.find((item) => item.location === location);
+            const gene = el("span", "gene" + (copy ? " present" : ""));
+            gene.dataset.location = location;
+            if (isVariant(copy)) gene.classList.add("variant");
+            else if (copy && copy.sha !== source.sha)
+              gene.classList.add("mutated");
+            track.appendChild(gene);
+          }
           const hw = el("div", "harnesses");
           for (const h of HARNESSES) {
             if (copies.some((c) => c.location === h))
@@ -1695,7 +1892,7 @@
             "badge " + statusBadgeClass(st),
             statusLabel(st),
           );
-          row.append(nm, ds, hw, badge);
+          row.append(nm, ds, track, hw, badge);
           row.addEventListener("click", () => openSkill(name));
           rows.appendChild(row);
         }
@@ -2143,6 +2340,15 @@
       document
         .getElementById("portabilityViewBtn")
         .addEventListener("click", () => setView("portability"));
+      document
+        .getElementById("fleetModeBtn")
+        .addEventListener("click", () => setAppMode("fleet"));
+      document
+        .getElementById("browseModeBtn")
+        .addEventListener("click", () => setAppMode("browse"));
+      document
+        .getElementById("attentionModeBtn")
+        .addEventListener("click", () => setAppMode("attention"));
       let searchTimer = null;
       document.getElementById("q").addEventListener("input", (e) => {
         q = e.target.value.trim().toLowerCase();
