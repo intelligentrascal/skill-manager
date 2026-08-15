@@ -28,7 +28,10 @@ test("dashboard exposes fleet browse and attention without removing existing evi
 		html.includes('.wrap[data-app-mode="browse"] .health'),
 		"missing browse health-exclusion selector",
 	);
-	assert.doesNotMatch(html, /stale upstream/i);
+	assert.ok(
+		html.includes("No drift or uncommitted repo copies are queued."),
+		"missing honest attention empty-state sentence",
+	);
 });
 
 test("README leads with product outcome, quick start, and safety model", () => {

@@ -1317,7 +1317,7 @@
           </button>
           <button id="attentionModeBtn" type="button" aria-pressed="false">
             Attention
-            <span class="attention-count" id="attentionCount">0</span>
+            <span class="attention-count" id="attentionCount" aria-live="polite">0</span>
           </button>
         </nav>
         <div class="workspace">
@@ -1410,6 +1410,7 @@
       let status = "all";
       let view = "genome";
       let appMode = "fleet";
+      const modeView = { fleet: "genome", browse: "list" };
       let pulseNames = new Set();
       let upstreamResults = {}; // name -> { stale, error } from /api/upstream-batch
       let COMPAT = null;
@@ -1651,8 +1652,7 @@
           .sort();
       }
 
-      function setView(nextView) {
-        view = nextView;
+      function syncViewUI() {
         document.getElementById("genomeWall").hidden = view !== "genome";
         document.getElementById("rows").hidden = view !== "list";
         document.getElementById("matrix").hidden = view !== "matrix";
@@ -1670,10 +1670,18 @@
         document
           .getElementById("listViewBtn")
           .setAttribute("aria-pressed", String(view === "list"));
+      }
+
+      function setView(nextView) {
+        view = nextView;
+        if (appMode === "fleet" || appMode === "browse")
+          modeView[appMode] = nextView;
+        syncViewUI();
         render();
       }
 
       function setAppMode(mode) {
+        if (mode === appMode) return;
         appMode = mode;
         document.querySelector(".wrap").dataset.appMode = mode;
         document
@@ -1685,8 +1693,10 @@
         document
           .getElementById("attentionModeBtn")
           .setAttribute("aria-pressed", String(mode === "attention"));
-        if (mode === "fleet") setView("genome");
-        else if (mode === "browse") setView("list");
+        if (mode === "fleet" || mode === "browse") {
+          view = modeView[mode];
+          syncViewUI();
+        }
         renderHealthActions();
         render();
       }
@@ -1880,15 +1890,26 @@
             (copies[0].description || "").slice(0, 110),
           );
           const track = el("span", "list-track");
+          track.setAttribute("role", "img");
+          const sig = [];
           for (const location of HARNESSES) {
             const copy = copies.find((item) => item.location === location);
             const gene = el("span", "gene" + (copy ? " present" : ""));
             gene.dataset.location = location;
-            if (isVariant(copy)) gene.classList.add("variant");
-            else if (copy && copy.sha !== source.sha)
+            if (isVariant(copy)) {
+              gene.classList.add("variant");
+              sig.push(location + " variant");
+            } else if (copy && copy.sha !== source.sha) {
               gene.classList.add("mutated");
+              sig.push(location + " drifted");
+            } else if (copy) {
+              sig.push(location + " present");
+            } else {
+              sig.push(location + " absent");
+            }
             track.appendChild(gene);
           }
+          track.setAttribute("aria-label", "Deployment: " + sig.join(", "));
           const hw = el("div", "harnesses");
           for (const h of HARNESSES) {
             if (copies.some((c) => c.location === h))
