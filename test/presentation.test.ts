@@ -11,20 +11,20 @@ test("dashboard exposes fleet browse and attention without removing existing evi
 		'id="fleetModeBtn"',
 		'id="browseModeBtn"',
 		'id="attentionModeBtn"',
-		'let appMode = "fleet"',
 		'id="genomeWall"',
 		'id="matrix"',
 		'id="rows"',
 		'id="healthItems"',
 	])
-		assert.match(
-			html,
-			new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-		);
+		assert.ok(html.includes(marker), `missing marker: ${marker}`);
+
+	// appMode must be declared and initialized to fleet - tolerant of
+	// whitespace and single/double quoting, but not a brittle literal match.
+	assert.match(html, /let\s+appMode\s*=\s*["']fleet["']/);
 });
 
 test("README leads with product outcome, quick start, and safety model", () => {
-	assert.match(readme, /## QUICK START/);
-	assert.match(readme, /## SAFETY MODEL/);
-	assert.doesNotMatch(readme, /\*\*258 skills/);
+	assert.match(readme, /^## QUICK START/m);
+	assert.match(readme, /^## SAFETY MODEL/m);
+	assert.doesNotMatch(readme, /^\*\*[0-9,]+ skills/m);
 });
