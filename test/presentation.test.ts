@@ -21,6 +21,14 @@ test("dashboard exposes fleet browse and attention without removing existing evi
 	// appMode must be declared and initialized to fleet - tolerant of
 	// whitespace, with matching single/double quotes via a backreference.
 	assert.match(html, /let\s+appMode\s*=\s*(["'])fleet\1/);
+
+	// Browse mode hides the health queue (CSS selector + render state), and
+	// the Attention empty state stays honest about what the queue represents.
+	assert.ok(
+		html.includes('.wrap[data-app-mode="browse"] .health'),
+		"missing browse health-exclusion selector",
+	);
+	assert.doesNotMatch(html, /stale upstream/i);
 });
 
 test("README leads with product outcome, quick start, and safety model", () => {
