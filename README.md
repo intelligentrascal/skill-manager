@@ -120,7 +120,7 @@ Override paths with `SM_PI_SKILLS`, `SM_OPENCODE_SKILLS`, `SM_CLAUDE_SKILLS`, `S
 
 ## SAFETY MODEL
 
-- **Preview before confirmation.** Sync is previewed and requires explicit target confirmation before any copy is written. Upstream updates are preview-only in the dashboard; no apply is exposed.
+- **Preview before confirmation.** Sync is previewed and requires explicit target confirmation before any copy is written. Upstream update preview is available through the API; no update apply is exposed through the dashboard.
 - **The repo is the source of truth.** Drift resolution starts from the repository copy, which is reviewable before a target changes.
 - **Manifest-pinned identity.** Upstream updates follow the identity pinned in `skillmgr.yaml` (URL, subpath, and revision). Nothing guesses from HEAD.
 - **Variant verification.** A deployed variant is re-checked against the copy the target reads. Failures are reported - a failing deployment is not removed and must not be treated as accepted.

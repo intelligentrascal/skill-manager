@@ -550,7 +550,7 @@ const server = createServer(
 
 		if (req.method === "POST" && url.pathname === "/api/variant/deploy") {
 			// Deploy a stored variant to an agent discovery path, then verify it
-			// (removed fields gone, spec 4b). Never leaves a failing variant.
+			// (removed fields gone, spec 4b). Deployment is verified afterward; a failure is reported, not automatically rolled back.
 			let body = "";
 			for await (const chunk of req) body += chunk;
 			let payload: { name?: string; agent?: string; targetPath?: string } = {};

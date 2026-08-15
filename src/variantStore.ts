@@ -3,8 +3,8 @@
 // chosen agent discovery path. V1 = full snapshots, no patches.
 //
 // Flow: create (adapt repo/canonical content -> store) -> deploy (copy to the
-// agent path) -> verify (compat re-check on the deployed copy). A variant that
-// fails verification is never left deployed.
+// agent path) -> verify (compat re-check on the deployed copy). Deployment is
+// verified afterward; a failure is reported, not automatically rolled back.
 
 import {
 	mkdirSync,
