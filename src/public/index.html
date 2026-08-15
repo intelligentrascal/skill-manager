@@ -1170,6 +1170,25 @@
           justify-content: center;
         }
       }
+      @media (max-width: 770px) {
+        /* Collapse the five-column list row to the two-column layout before the
+           fixed name and description columns can clip between 641px and 770px. */
+        .row {
+          grid-template-columns: 1fr auto;
+          gap: 8px;
+        }
+        .row .ds {
+          grid-column: 1 / -1;
+          white-space: normal;
+        }
+        .row .harnesses {
+          grid-column: 1;
+        }
+        .row .list-track {
+          grid-column: 1 / -1;
+          justify-self: start;
+        }
+      }
       @media (max-width: 640px) {
         .wrap {
           padding: 20px 14px 42px;
@@ -1242,21 +1261,6 @@
         }
         .gene::after {
           font-size: 6px;
-        }
-        .row {
-          grid-template-columns: 1fr auto;
-          gap: 8px;
-        }
-        .row .ds {
-          grid-column: 1 / -1;
-          white-space: normal;
-        }
-        .row .harnesses {
-          grid-column: 1;
-        }
-        .row .list-track {
-          grid-column: 1 / -1;
-          justify-self: start;
         }
         .matrix {
           display: block;

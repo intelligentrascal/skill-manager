@@ -39,3 +39,17 @@ test("README leads with product outcome, quick start, and safety model", () => {
 	assert.match(readme, /^## SAFETY MODEL$/m);
 	assert.doesNotMatch(readme, /^\*\*[0-9,]+\s+skills/im);
 });
+
+test("inline dashboard script compiles without syntax errors", () => {
+	const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+	assert.ok(scripts.length > 0, "expected an inline <script> block");
+	for (const match of scripts) {
+		// new Function compiles the body without executing it, so a syntax
+		// error in the dashboard script fails here while dashboard code is
+		// never run and no files are created.
+		assert.doesNotThrow(
+			() => new Function(match[1]),
+			"inline dashboard script has a syntax error",
+		);
+	}
+});

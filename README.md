@@ -124,7 +124,7 @@ Override paths with `SM_PI_SKILLS`, `SM_OPENCODE_SKILLS`, `SM_CLAUDE_SKILLS`, `S
 - **The repo is the source of truth.** Drift resolution starts from the repository copy, which is reviewable before a target changes.
 - **Manifest-pinned identity.** Upstream updates follow the identity pinned in `skillmgr.yaml` (URL, subpath, and revision). Nothing guesses from HEAD.
 - **Variant verification.** A deployed variant is re-checked against the copy the target reads. Failures are reported - a failing deployment is not removed and must not be treated as accepted.
-- **Local-only binding.** The dashboard runs on `127.0.0.1` using Node built-ins only. No account, no cloud service.
+- **Local-only binding.** The dashboard runs on `127.0.0.1` using Node built-ins only. There is no hosted backend, account, or cloud service; GitHub is contacted on demand only for upstream checks and update previews.
 
 ## LIMITS
 
