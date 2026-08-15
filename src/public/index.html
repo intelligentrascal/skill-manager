@@ -1078,6 +1078,9 @@
       .wrap[data-app-mode="attention"] #foot {
         display: none;
       }
+      .wrap[data-app-mode="browse"] .health {
+        display: none;
+      }
       .attention-empty {
         padding: 44px 20px;
         text-align: center;
@@ -1553,6 +1556,10 @@
           : "all clear";
         count.textContent = String(ACTIONS.length);
         count.classList.toggle("has", ACTIONS.length > 0);
+        if (appMode === "browse") {
+          section.hidden = true;
+          return;
+        }
         if (!ACTIONS.length) {
           if (appMode === "attention") {
             section.hidden = false;
@@ -1562,7 +1569,7 @@
               el(
                 "small",
                 "",
-                "No drift, uncommitted repo copies, or stale upstreams are queued.",
+                "No drift or uncommitted repo copies are queued.",
               ),
             );
             wrap.appendChild(empty);
