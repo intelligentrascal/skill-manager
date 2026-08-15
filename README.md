@@ -28,10 +28,10 @@ The whole fleet as a compact field of five-location genome strips. Identical cop
 
 | Status | Meaning |
 | --- | --- |
-| `OK` | One copy, or multiple identical copies |
-| `MIRROR` | Identical copies installed where agents expect to find them (healthy by design) |
-| `DRIFT` | Copies with the same name differ and need inspection |
-| `VARIANT` | A registered adaptation for one agent - linked to the skill, never flagged |
+| `OK` | A single copy |
+| `MIRROR` | Multiple identical copies |
+| `DRIFT` | Copies with the same name differ |
+| `VARIANT` | A metadata-backed state for a registered adaptation. The scanner does not emit variant metadata yet, so a deployed variant currently appears as drift |
 
 The repository copy also receives a `repoClean` check against `git HEAD`.
 
@@ -87,11 +87,11 @@ Sync flows are previewed before confirmation. You see the exact source and targe
 
 ### Manifest-pinned upstream updates
 
-A skill that declares a pinned upstream identity in `skillmgr.yaml` (URL, subpath, and revision) can be previewed at that revision. Preview is read-only. Apply - and rollback after apply - are available only when a repo mirror exists. When executable behavior changes, apply requires a typed acknowledgement.
+A skill that declares a pinned upstream identity in `skillmgr.yaml` (URL, subpath, and revision) can be previewed at that revision. The preview is read-only and mirror-gated: it reports whether the baseline is the repo mirror and marks apply as available only when it is. Apply and rollback exist in the update service but are not yet exposed in the dashboard - only the preview is surfaced today. When executable behavior changes, the service requires a typed acknowledgement.
 
 ### Variants with verification
 
-A claude-only skill becomes usable on pi, opencode, or codex as a linked variant: adapted per agent (claude invocation fields removed, opencode triggers added, and anything that does not carry over is reported rather than dropped), stored as a full snapshot, deployed explicitly, and verified before it stays. A variant that fails verification is never left deployed.
+A claude-only skill becomes usable on pi, opencode, or codex as a linked variant: adapted per agent (claude invocation fields removed, opencode triggers added, and anything that does not carry over is reported rather than dropped), stored as a full snapshot, and deployed explicitly. The deployed copy is then re-verified; a failure is reported, and the deployment must not be treated as accepted - it is not rolled back automatically.
 
 ## QUICK START
 
@@ -120,16 +120,16 @@ Override paths with `SM_PI_SKILLS`, `SM_OPENCODE_SKILLS`, `SM_CLAUDE_SKILLS`, `S
 
 ## SAFETY MODEL
 
-- **Preview before confirmation.** Sync and upstream changes are previewed before anything is written; no action applies silently.
+- **Preview before confirmation.** Sync is previewed and requires explicit target confirmation before any copy is written. Upstream updates are preview-only in the dashboard; no apply is exposed.
 - **The repo is the source of truth.** Drift resolution starts from the repository copy, which is reviewable before a target changes.
 - **Manifest-pinned identity.** Upstream updates follow the identity pinned in `skillmgr.yaml` (URL, subpath, and revision). Nothing guesses from HEAD.
-- **Variant verification.** Deployed variants are re-checked: the fields that triggered adaptation must be gone from the copy the target reads, or the variant does not stay deployed.
+- **Variant verification.** A deployed variant is re-checked against the copy the target reads. Failures are reported - a failing deployment is not removed and must not be treated as accepted.
 - **Local-only binding.** The dashboard runs on `127.0.0.1` using Node built-ins only. No account, no cloud service.
 
 ## LIMITS
 
 - **Runtime facts are labeled, not guessed.** Each compatibility and discovery finding is documented, inferred, or unknown. Pi and Claude profiles are documented; Codex and OpenCode profiles are inferred until runtime probes verify them.
-- **No absent repo mirror is represented as apply-capable.** An installed copy is never presented as the repo mirror. Without a repo copy, upstream apply is reported as unavailable with a path forward.
+- **No absent repo mirror is represented as apply-capable.** The update preview marks apply as available only when the baseline is the repo mirror; an installed copy is never presented as the mirror. Apply and rollback are not yet exposed in the dashboard at all.
 - **No universal compatibility claim.** Skill Manager reports what it can prove and labels the rest. It does not claim that every frontmatter field works in every runtime.
 
 ## LINKS
