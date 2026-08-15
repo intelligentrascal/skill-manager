@@ -19,12 +19,12 @@ test("dashboard exposes fleet browse and attention without removing existing evi
 		assert.ok(html.includes(marker), `missing marker: ${marker}`);
 
 	// appMode must be declared and initialized to fleet - tolerant of
-	// whitespace and single/double quoting, but not a brittle literal match.
-	assert.match(html, /let\s+appMode\s*=\s*["']fleet["']/);
+	// whitespace, with matching single/double quotes via a backreference.
+	assert.match(html, /let\s+appMode\s*=\s*(["'])fleet\1/);
 });
 
 test("README leads with product outcome, quick start, and safety model", () => {
-	assert.match(readme, /^## QUICK START/m);
-	assert.match(readme, /^## SAFETY MODEL/m);
-	assert.doesNotMatch(readme, /^\*\*[0-9,]+ skills/m);
+	assert.match(readme, /^## QUICK START$/m);
+	assert.match(readme, /^## SAFETY MODEL$/m);
+	assert.doesNotMatch(readme, /^\*\*[0-9,]+\s+skills/im);
 });
