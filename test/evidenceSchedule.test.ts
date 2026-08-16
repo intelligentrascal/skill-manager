@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { mock } from "node:test";
 import {
 	firstFridayOfMonth,
 	isFirstFriday1000,
 	msUntilNextFirstFriday1000,
 	nextFirstFriday1000,
+	scheduleRegistryCheck,
 } from "../src/evidenceSchedule.ts";
 
 test("first Friday of known 2026 months lands on the right day at 10:00", () => {
@@ -61,5 +62,67 @@ test("msUntilNextFirstFriday1000 is never negative", () => {
 		[2026, 11, 31],
 	] as const) {
 		assert.ok(msUntilNextFirstFriday1000(new Date(y, m, d)) >= 0);
+	}
+});
+
+test("scheduleRegistryCheck fires exactly once on the first Friday, not hourly", () => {
+	// Aug 7 2026 is the first Friday; start the clock at 09:00 the same day.
+	mock.timers.enable({
+		apis: ["setTimeout", "Date"],
+		now: new Date(2026, 7, 7, 9, 0, 0).getTime(),
+	});
+	try {
+		let calls = 0;
+		const schedule = scheduleRegistryCheck(() => {
+			calls++;
+		});
+		// Advance hour-by-hour from 09:00 through the whole day and past midnight.
+		for (let i = 0; i < 16; i++) mock.timers.tick(60 * 60 * 1000);
+		assert.equal(calls, 1);
+		schedule.stop();
+	} finally {
+		mock.timers.reset();
+	}
+});
+
+test("scheduleRegistryCheck re-arms and fires again the next month", () => {
+	mock.timers.enable({
+		apis: ["setTimeout", "Date"],
+		now: new Date(2026, 7, 7, 9, 0, 0).getTime(),
+	});
+	try {
+		let calls = 0;
+		const schedule = scheduleRegistryCheck(() => {
+			calls++;
+		});
+		mock.timers.tick(60 * 60 * 1000); // 10:00 first Friday -> fires
+		assert.equal(calls, 1);
+		// Aug 7 -> Sep 4 (next first Friday) is 28 days; every hourly re-arm in
+		// between must stay silent, then Sep 4 10:00 fires exactly once more.
+		mock.timers.tick(28 * 24 * 60 * 60 * 1000);
+		assert.equal(calls, 2);
+		schedule.stop();
+	} finally {
+		mock.timers.reset();
+	}
+});
+
+test("scheduleRegistryCheck never fires on a non-first Friday", () => {
+	// Aug 14 2026 is a Friday but NOT the first Friday of August.
+	mock.timers.enable({
+		apis: ["setTimeout", "Date"],
+		now: new Date(2026, 7, 14, 9, 0, 0).getTime(),
+	});
+	try {
+		let calls = 0;
+		const schedule = scheduleRegistryCheck(() => {
+			calls++;
+		});
+		// Advance well past 10:00 on the second Friday.
+		for (let i = 0; i < 4; i++) mock.timers.tick(60 * 60 * 1000);
+		assert.equal(calls, 0);
+		schedule.stop();
+	} finally {
+		mock.timers.reset();
 	}
 });

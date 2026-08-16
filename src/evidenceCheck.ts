@@ -31,6 +31,10 @@ export interface SourceCheck {
 	note: string;
 	/** short sample of newly fetched content (changed sources only), for review. */
 	sample?: string;
+	/** full verbatim source text captured by the check (changed / no-baseline
+	 * sources only). Persisted on approval so the committed excerpt matches the
+	 * re-baselined content hash. */
+	evidenceText?: string;
 }
 
 export interface RegistryProposal {
@@ -53,7 +57,7 @@ export interface FetchResult {
 
 const SAMPLE_LIMIT = 200;
 
-function sha(text: string): string {
+export function sha(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
 }
 
@@ -158,6 +162,10 @@ export async function checkRegistrySources(
 				note: classified.note,
 				...(classified.status === "changed"
 					? { sample: (fetch.text ?? "").slice(0, SAMPLE_LIMIT) }
+					: {}),
+				...(classified.status === "changed" ||
+				classified.status === "no-baseline"
+					? { evidenceText: fetch.text ?? "" }
 					: {}),
 			});
 		}

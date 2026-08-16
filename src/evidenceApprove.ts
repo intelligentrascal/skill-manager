@@ -15,7 +15,7 @@ import {
 	validateRegistry,
 	type EvidenceRegistry,
 } from "./evidenceRegistry.ts";
-import type { RegistryProposal } from "./evidenceCheck.ts";
+import { sha, type RegistryProposal } from "./evidenceCheck.ts";
 import {
 	readActiveRegistry,
 	readProposal,
@@ -69,8 +69,27 @@ function reBaseline(
 		if (!profile) continue;
 		const source = profile.sources.find((s) => s.url === check.url);
 		if (!source) continue;
+		// Never commit a fresh content hash paired with a stale excerpt: the
+		// re-baselined evidence must be the verbatim text whose hash we record.
+		// When the check did not capture that text (or it no longer matches),
+		// block approval instead of writing an internally inconsistent record.
+		const evidenceText = check.evidenceText;
+		if (typeof evidenceText !== "string" || !evidenceText.trim()) {
+			throw new ApprovalError(
+				`Cannot re-baseline ${check.agent} ${check.url}: the check recorded a new content hash but no matching source evidence text. Re-run the check.`,
+			);
+		}
+		if (sha(evidenceText) !== check.currentHash) {
+			throw new ApprovalError(
+				`Cannot re-baseline ${check.agent} ${check.url}: the recorded evidence text does not match the recorded content hash. Re-run the check.`,
+			);
+		}
 		source.contentHash = check.currentHash;
 		source.observedAt = check.fetchedAt;
+		// Behavior claims are deliberately NOT updated here: a content change
+		// means the derived claims may be stale and require later human/model
+		// review, not automatic re-interpretation at approval time.
+		source.excerpt = evidenceText;
 		updated++;
 	}
 	return updated;
@@ -168,7 +187,7 @@ export async function approveProposal(options: {
 	let pushed = true;
 	let pushError: string | undefined;
 	try {
-		await git(options.repoRoot, ["push", "origin", "HEAD"]);
+		await git(options.repoRoot, ["push", "origin", "HEAD:refs/heads/main"]);
 	} catch (error) {
 		pushed = false;
 		pushError =
