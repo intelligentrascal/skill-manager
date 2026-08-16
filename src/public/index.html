@@ -1144,6 +1144,124 @@
         color: var(--accent);
         font: 750 9px var(--mono);
       }
+      /* AI Adaptation Review (ticket #6): same Genome language, honest about
+         evidence and uncertainty; blocking conditions use coral. */
+      .adapt-section {
+        margin-top: 4px;
+      }
+      .adapt-change {
+        margin: 10px 0;
+        padding: 11px 12px;
+        border: 1px solid var(--line-strong);
+        border-left: 3px solid var(--accent);
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--surface-raised) 60%, var(--bg));
+      }
+      .adapt-change-summary {
+        color: var(--ink);
+        font: 600 11px var(--body);
+        margin-bottom: 8px;
+      }
+      .adapt-revs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        font: 9px/1.5 var(--mono);
+        color: var(--ink-faint);
+      }
+      .adapt-revs b { color: var(--ink-muted); font-weight: 600; }
+      .adapt-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .adapt-field {
+        font: 9px var(--mono);
+        padding: 2px 7px;
+        border-radius: 5px;
+        border: 1px solid var(--line);
+        color: var(--ink-muted);
+      }
+      .adapt-field.added { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+      .adapt-field.removed { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+      .adapt-field.modified { color: var(--variant); border-color: color-mix(in srgb, var(--variant) 45%, var(--line)); }
+      .adapt-agent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .adapt-agent-row {
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 11px 12px;
+        background: var(--surface);
+      }
+      .adapt-agent-row.blocked { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
+      .adapt-agent-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 7px;
+      }
+      .adapt-agent-head h4 { margin: 0; font: 700 12px var(--body); color: var(--ink); }
+      .adapt-status {
+        margin-left: auto;
+        font: 750 9px var(--mono);
+        padding: 2px 8px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .adapt-status.proposed { color: var(--variant); border: 1px solid color-mix(in srgb, var(--variant) 55%, var(--line)); }
+      .adapt-status.blocked { color: var(--bad); border: 1px solid color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+      .adapt-status.canonical { color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 55%, var(--line)); }
+      .adapt-impact {
+        list-style: none;
+        margin: 6px 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .adapt-impact li {
+        font: 9px/1.4 var(--mono);
+        color: var(--ink-muted);
+      }
+      .adapt-impact .t-honors { color: var(--good); }
+      .adapt-impact .t-ignores, .adapt-impact .t-breaks { color: var(--variant); }
+      .adapt-impact .t-requires { color: var(--bad); }
+      .adapt-impact .t-unknown { color: var(--ink-faint); }
+      .adapt-evidence {
+        font: 9px var(--mono);
+        color: var(--ink-faint);
+        margin: 6px 0;
+      }
+      .adapt-evidence b { color: var(--ink-muted); }
+      .adapt-uncertainty, .adapt-blocking {
+        margin: 6px 0;
+        padding: 7px 9px;
+        border-radius: 6px;
+        font: 9px/1.45 var(--mono);
+      }
+      .adapt-uncertainty {
+        border: 1px dashed color-mix(in srgb, var(--variant) 45%, var(--line));
+        color: var(--variant);
+        background: color-mix(in srgb, var(--variant) 7%, transparent);
+      }
+      .adapt-blocking {
+        border: 1px solid color-mix(in srgb, var(--bad) 55%, var(--line));
+        color: var(--bad);
+        background: color-mix(in srgb, var(--bad) 10%, transparent);
+      }
+      .adapt-uncertainty ul, .adapt-blocking ul { margin: 4px 0 0; padding-left: 16px; }
+      .adapt-notes {
+        font: 9px/1.4 var(--mono);
+        color: var(--ink-muted);
+        margin: 5px 0;
+      }
+      .adapt-notes span { color: var(--ink-faint); }
       .evidence-row {
         display: grid;
         grid-template-columns: minmax(70px, 0.5fr) minmax(0, 1.5fr) auto;
@@ -2643,13 +2761,182 @@
         });
         body.appendChild(rows);
         const next = el("div", "variant-next");
+        const reviewBtn = el("button", "chip primary-action", "Review adaptation");
+        reviewBtn.type = "button";
+        reviewBtn.addEventListener("click", () => reviewAdaptation(name, body));
         next.appendChild(el("strong", "", "Next stage · "));
-        next.appendChild(
-          document.createTextNode(
-            "AI-assisted Adaptation Review is the intended next stage; it is not available here yet.",
-          ),
-        );
+        next.appendChild(reviewBtn);
         body.appendChild(next);
+        section.append(head, body);
+        mount.appendChild(section);
+      }
+
+      // AI Adaptation Review (ticket #6): fetch and render the generated review
+      // into the variant column. Honest about evidence + uncertainty; blocking
+      // conditions are surfaced in coral.
+      function reviewAdaptation(name, mount) {
+        mount = mount || document.getElementById("skillOperations");
+        const loader = el("div", "variant-intro", "Generating Adaptation Review…");
+        mount.appendChild(loader);
+        const btn = mount.querySelector('.variant-next button');
+        if (btn) btn.disabled = true;
+        fetch("/api/adaptation-review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        })
+          .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+          .then(({ ok, data }) => {
+            loader.remove();
+            if (btn) btn.disabled = false;
+            if (!ok) {
+              const err = el("div", "adapt-blocking");
+              err.appendChild(
+                document.createTextNode(data.error || "Adaptation review unavailable."),
+              );
+              mount.appendChild(err);
+              return;
+            }
+            renderAdaptationReview(data, mount);
+          })
+          .catch((error) => {
+            loader.remove();
+            if (btn) btn.disabled = false;
+            const err = el("div", "adapt-blocking");
+            err.appendChild(
+              document.createTextNode(
+                error instanceof Error ? error.message : "Adaptation review failed.",
+              ),
+            );
+            mount.appendChild(err);
+          });
+      }
+
+      // small helper: build a span with a nested <b> + trailing text
+      function elWith(tag, cls, text, children) {
+        const node = el(tag, cls, text || "");
+        if (children) {
+          for (const [ctag, ctext] of children) {
+            if (ctag) node.appendChild(el(ctag, "", ctext));
+            else node.appendChild(document.createTextNode(ctext));
+          }
+        }
+        return node;
+      }
+
+      function renderAdaptationReview(review, mount) {
+        const section = el("section", "detail-section adapt-section");
+        section.setAttribute("aria-labelledby", "adaptReviewTitle");
+        const head = el("div", "detail-section-head");
+        const title = el("h3", "", "AI Adaptation Review");
+        title.id = "adaptReviewTitle";
+        head.appendChild(title);
+        head.appendChild(
+          el("span", "", review.cacheHit ? "cached analysis" : "generated"),
+        );
+        const body = el("div", "detail-section-body");
+        body.setAttribute("aria-live", "polite");
+
+        const change = el("div", "adapt-change");
+        change.appendChild(el("div", "adapt-change-summary", review.changeSummary.summary));
+        const revs = el("div", "adapt-revs");
+        revs.appendChild(elWith("span", "", "", [["b", "source "], review.sourceRevision || "unknown"]));
+        revs.appendChild(elWith("span", "", "", [["b", "canonical base "], review.canonicalRevision || "unknown"]));
+        revs.appendChild(elWith("span", "", "", [["b", "agent profile "], review.agentProfileRevision || "unknown"]));
+        change.appendChild(revs);
+        const fields = el("div", "adapt-fields");
+        for (const f of review.changeSummary.changedFields || []) {
+          fields.appendChild(el("span", "adapt-field " + f.change, f.field + " · " + f.change));
+        }
+        if ((review.changeSummary.changedFields || []).length === 0) {
+          fields.appendChild(el("span", "adapt-field", "no frontmatter changes"));
+        }
+        change.appendChild(fields);
+        body.appendChild(change);
+
+        const list = el("div", "adapt-agent-list");
+        for (const agent of review.agents || []) {
+          const row = el("article", "adapt-agent-row" + (agent.status === "blocked" ? " blocked" : ""));
+          const rowHead = el("div", "adapt-agent-head");
+          rowHead.appendChild(el("h4", "", agent.label));
+          rowHead.appendChild(el("span", "adapt-status " + agent.status, agent.status));
+          row.appendChild(rowHead);
+
+          if (agent.impact && agent.impact.length) {
+            const impact = el("ul", "adapt-impact");
+            for (const finding of agent.impact) {
+              const li = el("li", "");
+              const tClass = "t-" + String(finding.treatment).replaceAll(" ", "-");
+              li.appendChild(el("span", tClass, finding.field + ": " + finding.treatment));
+              li.appendChild(document.createTextNode(" [" + finding.evidence + "] " + finding.note));
+              impact.appendChild(li);
+            }
+            row.appendChild(impact);
+          }
+
+          if (agent.evidence) {
+            const ev = el("div", "adapt-evidence");
+            ev.appendChild(el("b", "", "Evidence "));
+            ev.appendChild(
+              document.createTextNode(
+                agent.evidence.level + " · runtime " + agent.evidence.observedVersion +
+                " · observed " + formatTimestamp(agent.evidence.observedAt),
+              ),
+            );
+            row.appendChild(ev);
+            if (agent.evidence.basis && agent.evidence.basis.length) {
+              const basis = el("ul", "adapt-impact");
+              for (const rule of agent.evidence.basis.slice(0, 3)) {
+                basis.appendChild(el("li", "", rule));
+              }
+              row.appendChild(basis);
+            }
+          }
+
+          if (agent.uncertainty && agent.uncertainty.length) {
+            const un = el("div", "adapt-uncertainty");
+            un.appendChild(el("strong", "", "Uncertainty"));
+            const ul = el("ul", "");
+            for (const u of agent.uncertainty) ul.appendChild(el("li", "", u));
+            un.appendChild(ul);
+            row.appendChild(un);
+          }
+
+          if (agent.blockingConditions && agent.blockingConditions.length) {
+            const bl = el("div", "adapt-blocking");
+            bl.appendChild(el("strong", "", "Apply blocked"));
+            const ul = el("ul", "");
+            for (const b of agent.blockingConditions) ul.appendChild(el("li", "", b));
+            bl.appendChild(ul);
+            row.appendChild(bl);
+          }
+
+          if (agent.proposed && agent.proposed.content != null) {
+            const notes = el("div", "adapt-notes");
+            const parts = [];
+            if (agent.proposed.removed.length) parts.push("removed: " + agent.proposed.removed.join(", "));
+            if (agent.proposed.added.length) parts.push("added: " + agent.proposed.added.join(", "));
+            if (agent.proposed.carryOver.length) parts.push("carry-over: " + agent.proposed.carryOver.join(", "));
+            if (parts.length) notes.appendChild(document.createTextNode(parts.join("  ·  ")));
+            if (parts.length) row.appendChild(notes);
+            const details = el("details", "variant-difference");
+            details.appendChild(
+              el("summary", "", "Read proposed variant diff · " + agent.proposed.diff.summary),
+            );
+            const diff = el("pre", "variant-diff");
+            diff.setAttribute("aria-label", agent.label + " proposed variant diff");
+            const markers = { added: "+", removed: "-", ellipsis: "…", context: " " };
+            for (const line of agent.proposed.diff.lines) {
+              diff.appendChild(
+                el("span", "variant-diff-line " + line.kind, (markers[line.kind] || " ") + " " + line.text),
+              );
+            }
+            details.appendChild(diff);
+            row.appendChild(details);
+          }
+          list.appendChild(row);
+        }
+        body.appendChild(list);
         section.append(head, body);
         mount.appendChild(section);
       }
