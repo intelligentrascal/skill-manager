@@ -1017,6 +1017,133 @@
       .detail-section-body {
         padding: 14px;
       }
+      .variant-intro {
+        margin-bottom: 2px;
+        color: var(--ink-muted);
+        font-size: 11px;
+      }
+      .variant-agent-list {
+        margin: 13px -14px -14px;
+        border-top: 1px solid var(--line);
+      }
+      .variant-agent-row {
+        padding: 15px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .variant-agent-row:last-child {
+        border-bottom: 0;
+      }
+      .variant-agent-head {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+      }
+      .variant-agent-index {
+        display: grid;
+        place-items: center;
+        width: 25px;
+        height: 25px;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        color: var(--ink-faint);
+        font: 750 8px/1 var(--mono);
+      }
+      .variant-agent-head h4 {
+        font: 750 11px/1.2 var(--mono);
+        letter-spacing: -0.02em;
+      }
+      .variant-status {
+        padding: 5px 7px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        color: var(--ink-faint);
+        font: 800 7.5px/1 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .variant-status.canonical {
+        border-color: color-mix(in srgb, var(--info) 58%, var(--line));
+        color: var(--info);
+      }
+      .variant-status.variant-stored,
+      .variant-status.deployed {
+        border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+        color: var(--accent);
+      }
+      .variant-status.verified {
+        border-color: color-mix(in srgb, var(--good) 62%, var(--line));
+        color: var(--good);
+      }
+      .variant-summary {
+        margin: 10px 0 0 35px;
+        color: var(--ink-muted);
+        font-size: 10.5px;
+        line-height: 1.5;
+      }
+      .variant-revision,
+      .variant-evidence {
+        margin: 8px 0 0 35px;
+        color: var(--ink-faint);
+        font: 8.5px/1.5 var(--mono);
+        overflow-wrap: anywhere;
+      }
+      .variant-evidence strong {
+        color: var(--ink-muted);
+        font-weight: 700;
+      }
+      .variant-basis {
+        margin: 7px 0 0 50px;
+        color: var(--ink-faint);
+        font-size: 9.5px;
+      }
+      .variant-basis li + li {
+        margin-top: 4px;
+      }
+      .variant-difference {
+        margin: 10px 0 0 35px;
+      }
+      .variant-difference summary {
+        color: var(--accent);
+        cursor: pointer;
+        font: 750 8.5px/1.4 var(--mono);
+        letter-spacing: 0.035em;
+        text-transform: uppercase;
+      }
+      .variant-diff {
+        max-height: 270px;
+        margin: 9px 0 0;
+        overflow: auto;
+        overflow-wrap: anywhere;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        font: 9px/1.55 var(--mono);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .variant-diff-line {
+        display: block;
+        min-width: 0;
+      }
+      .variant-diff-line.added { color: var(--good); }
+      .variant-diff-line.removed { color: var(--bad); }
+      .variant-diff-line.context,
+      .variant-diff-line.ellipsis { color: var(--ink-faint); }
+      .variant-next {
+        margin-top: 13px;
+        padding: 11px 12px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 7px;
+        color: var(--ink-muted);
+        font-size: 10px;
+      }
+      .variant-next strong {
+        color: var(--accent);
+        font: 750 9px var(--mono);
+      }
       .evidence-row {
         display: grid;
         grid-template-columns: minmax(70px, 0.5fr) minmax(0, 1.5fr) auto;
@@ -1618,6 +1745,22 @@
         .copies .c {
           grid-template-columns: 70px 1fr auto;
         }
+        .variant-agent-head {
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+        .variant-status {
+          grid-column: 2;
+          justify-self: start;
+        }
+        .variant-summary,
+        .variant-revision,
+        .variant-evidence,
+        .variant-difference {
+          margin-left: 35px;
+        }
+        .variant-basis {
+          margin-left: 49px;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
         *,
@@ -1751,7 +1894,17 @@
                 <section class="assignment-panel" id="originAssignment" hidden></section>
                 <div id="canonicalEvidence"></div>
               </div>
-              <aside class="skill-operations" id="skillOperations" aria-label="Skill evidence and operations"></aside>
+              <aside class="skill-operations" id="skillOperations" aria-label="Skill evidence and operations">
+                <section class="detail-section variant-matrix" id="variantMatrix" aria-labelledby="variantMatrixTitle">
+                  <div class="detail-section-head">
+                    <h3 id="variantMatrixTitle">Agent variants</h3>
+                    <span>Loading evidence</span>
+                  </div>
+                  <div class="detail-section-body" id="variantMatrixBody" aria-live="polite">
+                    <p class="variant-intro">Pi, Claude, OpenCode, and Codex are checked against canonical evidence.</p>
+                  </div>
+                </section>
+              </aside>
             </div>
           </section>
         </div>
@@ -1773,6 +1926,19 @@
       let detailReturnFocus = null;
       let detailRequest = 0;
       const COMPAT_AGENTS = ["pi", "claude", "codex", "opencode"];
+      const VARIANT_AGENTS = [
+        { agent: "pi", label: "Pi" },
+        { agent: "claude", label: "Claude" },
+        { agent: "opencode", label: "OpenCode" },
+        { agent: "codex", label: "Codex" },
+      ];
+      const VARIANT_STATUSES = [
+        "Canonical",
+        "Variant stored",
+        "Deployed",
+        "Verified",
+        "Unknown",
+      ];
       const REASON_TEXT = {
         "found-global": "Sees this skill via a global path",
         "found-project": "Sees this skill via a project path",
@@ -2366,6 +2532,128 @@
         return { section, body };
       }
 
+      function unknownVariantMatrix(name) {
+        return {
+          skill: name,
+          agents: VARIANT_AGENTS.map(({ agent, label }) => ({
+            agent,
+            label,
+            status: "Unknown",
+            summary: "No canonical deployment or registered variant is evidenced.",
+            difference: null,
+            revision: null,
+            evidence: null,
+          })),
+        };
+      }
+
+      function renderVariantMatrix(matrix, mount) {
+        const section = el("section", "detail-section variant-matrix");
+        section.id = "variantMatrix";
+        section.setAttribute("aria-labelledby", "variantMatrixTitle");
+        const head = el("div", "detail-section-head");
+        const title = el("h3", "", "Agent variants");
+        title.id = "variantMatrixTitle";
+        head.appendChild(title);
+        head.appendChild(el("span", "", "Canonical baseline"));
+        const body = el("div", "detail-section-body");
+        body.id = "variantMatrixBody";
+        body.setAttribute("aria-live", "polite");
+        body.appendChild(
+          el(
+            "p",
+            "variant-intro",
+            "Absent variant data stays Unknown; it does not mean a failed adaptation.",
+          ),
+        );
+        const reported = new Map(
+          (Array.isArray(matrix?.agents) ? matrix.agents : []).map((row) => [row.agent, row]),
+        );
+        const rows = el("div", "variant-agent-list");
+        VARIANT_AGENTS.forEach(({ agent, label }, index) => {
+          const row = reported.get(agent) || unknownVariantMatrix(matrix?.skill || "").agents[index];
+          const safeStatus = VARIANT_STATUSES.includes(row.status) ? row.status : "Unknown";
+          const article = el("article", "variant-agent-row");
+          article.setAttribute("aria-label", label + ": " + safeStatus);
+          const rowHead = el("div", "variant-agent-head");
+          rowHead.appendChild(el("span", "variant-agent-index", String(index + 1).padStart(2, "0")));
+          rowHead.appendChild(el("h4", "", label));
+          const status = el(
+            "span",
+            "variant-status " + safeStatus.toLowerCase().replaceAll(" ", "-"),
+            safeStatus,
+          );
+          status.setAttribute("role", "status");
+          rowHead.appendChild(status);
+          article.appendChild(rowHead);
+          article.appendChild(el("p", "variant-summary", row.summary));
+          if (row.revision) {
+            const base = String(row.revision.canonical || "unknown");
+            const profile = String(row.revision.agentProfile || "unknown");
+            article.appendChild(
+              el(
+                "div",
+                "variant-revision",
+                "Canonical base " + base + " · agent profile " + profile,
+              ),
+            );
+          }
+          if (row.evidence) {
+            const evidence = el("div", "variant-evidence");
+            evidence.appendChild(el("strong", "", "Evidence "));
+            evidence.appendChild(
+              document.createTextNode(
+                row.evidence.level +
+                  " · runtime " +
+                  row.evidence.observedVersion +
+                  " · observed " +
+                  formatTimestamp(row.evidence.observedAt),
+              ),
+            );
+            article.appendChild(evidence);
+            if (Array.isArray(row.evidence.basis) && row.evidence.basis.length) {
+              const basis = el("ul", "variant-basis");
+              row.evidence.basis.slice(0, 2).forEach((claim) => {
+                basis.appendChild(el("li", "", claim));
+              });
+              article.appendChild(basis);
+            }
+          }
+          if (row.difference && Array.isArray(row.difference.lines)) {
+            const details = el("details", "variant-difference");
+            details.appendChild(
+              el("summary", "", "Read difference from canonical · " + row.difference.summary),
+            );
+            const diff = el("pre", "variant-diff");
+            diff.setAttribute("aria-label", label + " difference from canonical content");
+            row.difference.lines.forEach((line) => {
+              const markers = { added: "+", removed: "-", ellipsis: "…", context: " " };
+              diff.appendChild(
+                el(
+                  "span",
+                  "variant-diff-line " + line.kind,
+                  (markers[line.kind] || " ") + " " + line.text,
+                ),
+              );
+            });
+            details.appendChild(diff);
+            article.appendChild(details);
+          }
+          rows.appendChild(article);
+        });
+        body.appendChild(rows);
+        const next = el("div", "variant-next");
+        next.appendChild(el("strong", "", "Next stage · "));
+        next.appendChild(
+          document.createTextNode(
+            "AI-assisted Adaptation Review is the intended next stage; it is not available here yet.",
+          ),
+        );
+        body.appendChild(next);
+        section.append(head, body);
+        mount.appendChild(section);
+      }
+
       function appendOriginFact(wrap, label, value) {
         const fact = el("div", "origin-fact");
         fact.appendChild(el("span", "", label));
@@ -2795,10 +3083,12 @@
 
         let r;
         let originResponse;
+        let variantResponse;
         try {
-          [r, originResponse] = await Promise.all([
+          [r, originResponse, variantResponse] = await Promise.all([
             fetch("/api/skill?name=" + encodeURIComponent(name)),
             fetch("/api/origin?name=" + encodeURIComponent(name)),
+            fetch("/api/variant-matrix?name=" + encodeURIComponent(name)).catch(() => null),
           ]);
           if (!r.ok || !originResponse.ok) throw new Error("Skill evidence is unavailable.");
         } catch (error) {
@@ -2815,6 +3105,12 @@
           return;
         }
         const [d, origin] = await Promise.all([r.json(), originResponse.json()]);
+        let variantData = unknownVariantMatrix(name);
+        if (variantResponse?.ok) {
+          try {
+            variantData = await variantResponse.json();
+          } catch {}
+        }
         if (requestId !== detailRequest) return;
         renderOriginHero(name, origin, d);
         document.getElementById("skillWorkspaceState").textContent = origin.state + " origin";
@@ -2823,6 +3119,7 @@
         canonicalMount.appendChild(canonical.section);
         const body = canonical.body;
         const operations = document.getElementById("skillOperations");
+        renderVariantMatrix(variantData, operations);
         const fleet = detailSection(
           "Fleet evidence",
           d.copies.length + (d.copies.length === 1 ? " copy" : " copies"),

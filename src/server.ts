@@ -43,6 +43,7 @@ import {
 import { checkRegistrySources, fetchSourceContent } from "./evidenceCheck.ts";
 import { ApprovalError, approveProposal } from "./evidenceApprove.ts";
 import { nextFirstFriday1000, scheduleRegistryCheck } from "./evidenceSchedule.ts";
+import { buildAgentVariantMatrix } from "./variantMatrix.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const githubOriginMetadata = new GithubOriginMetadataCache(
@@ -338,6 +339,50 @@ const server = createServer(
 			}
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ name, copies, fullText, texts }));
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/variant-matrix") {
+			const name = url.searchParams.get("name");
+			if (!name) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing ?name parameter" }));
+				return;
+			}
+			const inv = getInventory();
+			const copies = inv.byName[name];
+			if (!copies || copies.length === 0) {
+				res.writeHead(404, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Skill not found" }));
+				return;
+			}
+			let manifestRecord;
+			try {
+				manifestRecord = loadRepoManifest()?.skills[name];
+			} catch {
+				manifestRecord = undefined;
+			}
+			let registry;
+			try {
+				registry = readActiveRegistry(evidencePaths().activeRegistryPath);
+			} catch {
+				registry = undefined;
+			}
+			const home =
+				process.platform === "win32" && process.env.USERPROFILE
+					? process.env.USERPROFILE
+					: process.env.HOME || process.env.USERPROFILE || "";
+			const matrix = buildAgentVariantMatrix({
+				skill: name,
+				copies,
+				repoGitRoot: repoRoot(),
+				manifestRecord,
+				registry,
+				profiles: DISCOVERY_PROFILES,
+				home,
+			});
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify(matrix));
 			return;
 		}
 

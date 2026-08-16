@@ -69,6 +69,28 @@ test("origin heroes keep GitHub facts explicit and make unknown assignment prima
 	assert.doesNotMatch(loadBody!, /\/api\/origin(?:\/refresh)?/);
 });
 
+test("agent variant matrix is honest, accessible, and stacked with the detail workspace", () => {
+	for (const marker of [
+		'id="variantMatrix"',
+		'id="variantMatrixTitle"',
+		'id="variantMatrixBody"',
+		'aria-labelledby="variantMatrixTitle"',
+		"Canonical",
+		"Variant stored",
+		"Deployed",
+		"Verified",
+		"Unknown",
+		"/api/variant-matrix",
+	]) {
+		assert.ok(html.includes(marker), `missing agent variant matrix contract: ${marker}`);
+	}
+	assert.ok(html.includes("Absent variant data stays Unknown"));
+	assert.ok(html.includes("AI-assisted Adaptation Review is the intended next stage"));
+	assert.doesNotMatch(html, /edit variant/i);
+	assert.match(html, /@media \(max-width: 900px\)[\s\S]*?\.detail-grid\s*{[\s\S]*?grid-template-columns:\s*1fr/);
+	assert.match(html, /\.variant-diff[\s\S]*?overflow-wrap:\s*anywhere/);
+});
+
 test("detail workspace declares full-screen responsive Back behavior and reviewed references", () => {
 	assert.match(html, /min-height:\s*100dvh/);
 	assert.ok(html.includes('key === "Escape"'));
