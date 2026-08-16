@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
+import {
+	containsCredentials,
+	type OriginAssignment,
+	type OriginRecord,
+	type OriginType,
+} from "./origin.ts";
 
 /** Versioned, repository-owned metadata. It never changes SKILL.md frontmatter. */
 export const MANIFEST_VERSION = 1 as const;
@@ -28,6 +34,7 @@ export interface SecurityReview {
 export interface SkillRecord {
 	provenance: Provenance;
 	identity?: SkillIdentity;
+	origin?: OriginRecord;
 	variants?: SkillVariant[];
 	securityReview?: SecurityReview;
 }
@@ -222,6 +229,75 @@ function rejectUnknown(
 	}
 }
 
+/** Parse and validate one origin assignment inside the manifest. */
+function parseOriginAssignment(
+	value: YamlValue | undefined,
+	path: string,
+): OriginAssignment {
+	const object = expectObject(value, path);
+	rejectUnknown(
+		object,
+		[
+			"type",
+			"at",
+			"reason",
+			"attribution",
+			"ownershipNote",
+			"url",
+			"subpath",
+			"verifiedAt",
+		],
+		path,
+	);
+	const type = expectString(object.type, `${path}.type`) as OriginType;
+	if (!["github", "private", "local"].includes(type)) {
+		throw new ManifestValidationError(`${path}.type is invalid`);
+	}
+	const at = expectString(object.at, `${path}.at`);
+	if (Number.isNaN(Date.parse(at))) {
+		throw new ManifestValidationError(`${path}.at must be an ISO date`);
+	}
+	const assignment: OriginAssignment = {
+		type,
+		at,
+		reason: expectString(object.reason, `${path}.reason`),
+	};
+	if (object.attribution !== undefined) {
+		assignment.attribution = expectString(
+			object.attribution,
+			`${path}.attribution`,
+		);
+	}
+	if (object.ownershipNote !== undefined) {
+		assignment.ownershipNote = expectString(
+			object.ownershipNote,
+			`${path}.ownershipNote`,
+		);
+	}
+	if (object.url !== undefined) {
+		const url = expectString(object.url, `${path}.url`);
+		if (containsCredentials(url)) {
+			throw new ManifestValidationError(
+				`${path}.url must not contain credentials or invite tokens`,
+			);
+		}
+		assignment.url = url;
+	}
+	if (object.subpath !== undefined) {
+		assignment.subpath = expectString(object.subpath, `${path}.subpath`);
+	}
+	if (object.verifiedAt !== undefined) {
+		const verifiedAt = expectString(object.verifiedAt, `${path}.verifiedAt`);
+		if (Number.isNaN(Date.parse(verifiedAt))) {
+			throw new ManifestValidationError(
+				`${path}.verifiedAt must be an ISO date`,
+			);
+		}
+		assignment.verifiedAt = verifiedAt;
+	}
+	return assignment;
+}
+
 /** Parse and validate a skillmgr.yaml document before it influences inventory. */
 export function parseManifest(text: string): SkillManagerManifest {
 	const root = parseYaml(text);
@@ -240,7 +316,7 @@ export function parseManifest(text: string): SkillManagerManifest {
 		const record = expectObject(rawRecord, `skills.${name}`);
 		rejectUnknown(
 			record,
-			["provenance", "identity", "variants", "securityReview"],
+			["provenance", "identity", "origin", "variants", "securityReview"],
 			`skills.${name}`,
 		);
 		const provenance = expectString(
@@ -278,10 +354,37 @@ export function parseManifest(text: string): SkillManagerManifest {
 				),
 			};
 		}
-		if (
+		let origin: OriginRecord | undefined;
+		if (record.origin !== undefined) {
+			const rawOrigin = expectObject(
+				record.origin,
+				`skills.${name}.origin`,
+			);
+			rejectUnknown(rawOrigin, ["current", "history"], `skills.${name}.origin`);
+			const current = parseOriginAssignment(
+				rawOrigin.current,
+				`skills.${name}.origin.current`,
+			);
+			let history: OriginAssignment[] = [];
+			if (rawOrigin.history !== undefined) {
+				if (!Array.isArray(rawOrigin.history)) {
+					throw new ManifestValidationError(
+						`skills.${name}.origin.history must be a list`,
+					);
+				}
+				history = rawOrigin.history.map((entry, index) =>
+					parseOriginAssignment(
+						entry,
+						`skills.${name}.origin.history[${index}]`,
+					),
+				);
+			}
+			origin = { current, history };
+		}
+		const requiresIdentity =
 			(provenance === "upstream" || provenance === "upstream-edited") &&
-			!identity
-		) {
+			origin?.current?.type !== "private";
+		if (requiresIdentity && !identity) {
 			throw new ManifestValidationError(
 				`skills.${name}.identity is required for ${provenance}`,
 			);
@@ -354,6 +457,7 @@ export function parseManifest(text: string): SkillManagerManifest {
 		records[name] = {
 			provenance,
 			...(identity ? { identity } : {}),
+			...(origin ? { origin } : {}),
 			...(variants ? { variants } : {}),
 			...(securityReview ? { securityReview } : {}),
 		};
@@ -371,4 +475,138 @@ export async function readManifest(
 /** Synchronous counterpart for the scanner's synchronous inventory pass. */
 export function readManifestSync(path: string): SkillManagerManifest {
 	return parseManifest(readFileSync(path, "utf8"));
+}
+
+/** Quote a YAML scalar only when it would otherwise be misread. */
+function yamlString(value: string): string {
+	if (value === "") return '""';
+	if (/^(?:true|false|null|~|yes|no|on|off)$/i.test(value)) {
+		return JSON.stringify(value);
+	}
+	if (/[\r\n]/.test(value)) return JSON.stringify(value);
+	if (/^\s|\s$/.test(value)) return JSON.stringify(value);
+	if (/#/.test(value)) return JSON.stringify(value);
+	if (/:(\s|$)/.test(value)) return JSON.stringify(value);
+	if (/^[-?:]/.test(value) || /^[[\]{},&*!|>'"%@`]/.test(value)) {
+		return JSON.stringify(value);
+	}
+	return value;
+}
+
+/** Ordered key/value lines for one origin assignment (no indentation). */
+function originAssignmentLines(assignment: OriginAssignment): string[] {
+	const lines = [
+		`type: ${assignment.type}`,
+		`at: ${yamlString(assignment.at)}`,
+		`reason: ${yamlString(assignment.reason)}`,
+	];
+	if (assignment.attribution !== undefined) {
+		lines.push(`attribution: ${yamlString(assignment.attribution)}`);
+	}
+	if (assignment.ownershipNote !== undefined) {
+		lines.push(`ownershipNote: ${yamlString(assignment.ownershipNote)}`);
+	}
+	if (assignment.url !== undefined) {
+		lines.push(`url: ${yamlString(assignment.url)}`);
+	}
+	if (assignment.subpath !== undefined) {
+		lines.push(`subpath: ${yamlString(assignment.subpath)}`);
+	}
+	if (assignment.verifiedAt !== undefined) {
+		lines.push(`verifiedAt: ${yamlString(assignment.verifiedAt)}`);
+	}
+	return lines;
+}
+
+/** Serialize one skill entry as an indented YAML block (2-space base indent). */
+export function serializeSkillEntry(
+	name: string,
+	record: SkillRecord,
+): string {
+	const lines: string[] = [`  ${name}:`];
+	lines.push(`    provenance: ${record.provenance}`);
+	if (record.identity) {
+		lines.push("    identity:");
+		lines.push(`      upstreamUrl: ${yamlString(record.identity.upstreamUrl)}`);
+		lines.push(`      subpath: ${yamlString(record.identity.subpath)}`);
+		lines.push(
+			`      pinnedRevision: ${yamlString(record.identity.pinnedRevision)}`,
+		);
+	}
+	if (record.origin) {
+		lines.push("    origin:");
+		lines.push("      current:");
+		for (const line of originAssignmentLines(record.origin.current)) {
+			lines.push(`        ${line}`);
+		}
+		if (record.origin.history.length > 0) {
+			lines.push("      history:");
+			for (const entry of record.origin.history) {
+				const entryLines = originAssignmentLines(entry);
+				lines.push(`        - ${entryLines[0]}`);
+				for (const line of entryLines.slice(1)) {
+					lines.push(`          ${line}`);
+				}
+			}
+		}
+	}
+	if (record.variants && record.variants.length > 0) {
+		lines.push("    variants:");
+		for (const variant of record.variants) {
+			lines.push(`      - agent: ${yamlString(variant.agent)}`);
+			lines.push(`        baseRevision: ${yamlString(variant.baseRevision)}`);
+			lines.push(`        deployedTo: ${yamlString(variant.deployedTo)}`);
+			if (variant.conflict !== undefined) {
+				lines.push(`        conflict: ${variant.conflict}`);
+			}
+		}
+	}
+	if (record.securityReview) {
+		lines.push("    securityReview:");
+		lines.push(`      state: ${record.securityReview.state}`);
+		lines.push(`      at: ${yamlString(record.securityReview.at)}`);
+	}
+	return lines.join("\n");
+}
+
+/**
+ * Insert or replace one skill entry in raw skillmgr.yaml text without
+ * reformatting the rest of the file. Entries are matched by their exact
+ * 2-space-indented `name:` line.
+ */
+export function upsertSkillEntry(
+	manifestText: string,
+	name: string,
+	record: SkillRecord,
+): string {
+	const block = serializeSkillEntry(name, record);
+	const lines = manifestText.split(/\r?\n/);
+	const index = lines.findIndex((line) => line === `  ${name}:`);
+	if (index === -1) {
+		const trimmed = manifestText.replace(/\s+$/, "");
+		return (trimmed ? `${trimmed}\n` : "") + block + "\n";
+	}
+	let end = index + 1;
+	while (end < lines.length) {
+		const line = lines[end];
+		if (line.trim() === "") {
+			end++;
+			continue;
+		}
+		const indent = line.match(/^ */)?.[0].length ?? 0;
+		if (indent < 4) break;
+		end++;
+	}
+	const before = lines.slice(0, index).join("\n");
+	const after = lines.slice(end).join("\n");
+	const parts = [before, block, after].filter((part) => part !== "");
+	return parts.join("\n") + "\n";
+}
+
+/** Create a minimal new manifest containing a single skill entry. */
+export function newManifestWithEntry(
+	name: string,
+	record: SkillRecord,
+): string {
+	return `version: 1\nskills:\n${serializeSkillEntry(name, record)}\n`;
 }
