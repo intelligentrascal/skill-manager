@@ -46,6 +46,29 @@ test("parseGithubUrl and containsCredentials reject credential-bearing URLs", ()
 	assert.equal(parseGithubUrl("https://github.com/acme/skills?token=x").ok, false);
 });
 
+test("containsCredentials does not flag benign params that merely contain 'key'", () => {
+	// Regression: the old pattern matched any param containing the substring
+	// "key", so a harmless ?monkey=1 was rejected as a credential.
+	assert.equal(
+		containsCredentials("https://github.com/acme/skills?monkey=1"),
+		false,
+	);
+	assert.equal(
+		containsCredentials("https://github.com/acme/skills?hockey=2&turkey=3"),
+		false,
+	);
+	// Whole-name-component credential params are still caught.
+	assert.equal(containsCredentials("https://github.com/acme/skills?key=1"), true);
+	assert.equal(
+		containsCredentials("https://github.com/acme/skills?api_key=1"),
+		true,
+	);
+	assert.equal(
+		containsCredentials("https://github.com/acme/skills?private_token=1"),
+		true,
+	);
+});
+
 test("normalizeSubpath rejects escapes and accepts the repository root", () => {
 	assert.deepEqual(normalizeSubpath("skills/demo"), { ok: true, subpath: "skills/demo" });
 	assert.deepEqual(normalizeSubpath("."), { ok: true, subpath: "." });
