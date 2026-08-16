@@ -34,6 +34,50 @@ test("dashboard exposes fleet browse and attention without removing existing evi
 	);
 });
 
+test("skill selection opens an origin-led workspace instead of a drawer", () => {
+	for (const marker of [
+		'id="inventoryWorkspace"',
+		'id="skillWorkspace"',
+		'id="skillBackBtn"',
+		'id="originHero"',
+		'id="skillEvidence"',
+		'id="skillOperations"',
+	]) {
+		assert.ok(html.includes(marker), `missing detail workspace marker: ${marker}`);
+	}
+	assert.doesNotMatch(html, /id=["']drawer["']/);
+	assert.match(html, /data-detail-open/);
+	assert.match(html, /aria-labelledby=["']skillWorkspaceTitle["']/);
+});
+
+test("origin heroes keep GitHub facts explicit and make unknown assignment primary", () => {
+	for (const copy of [
+		"Verified GitHub origin",
+		"Private / community origin",
+		"Mine / local origin",
+		"Origin unknown",
+		"Assign origin",
+		"Refresh GitHub facts",
+		"/api/origin/refresh",
+	]) {
+		assert.ok(html.includes(copy), `missing origin workspace contract: ${copy}`);
+	}
+	const loadBody = html.match(
+		/async function load\([\s\S]*?\n\s*function renderHarnessChips/,
+	)?.[0];
+	assert.ok(loadBody, "expected to find the page-load function");
+	assert.doesNotMatch(loadBody!, /\/api\/origin(?:\/refresh)?/);
+});
+
+test("detail workspace declares full-screen responsive Back behavior and reviewed references", () => {
+	assert.match(html, /min-height:\s*100dvh/);
+	assert.ok(html.includes('key === "Escape"'));
+	assert.ok(html.includes("altKey"));
+	for (const reference of ["GitHub activity", "Linear project detail", "Graphite activity panel", "GitLab repository page", "Vercel Git settings"]) {
+		assert.ok(html.includes(reference), `missing visual reference trace: ${reference}`);
+	}
+});
+
 test("README leads with product outcome, quick start, and safety model", () => {
 	assert.match(readme, /^## QUICK START$/m);
 	assert.match(readme, /^## SAFETY MODEL$/m);
