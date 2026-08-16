@@ -82,6 +82,8 @@ test("approve re-baselines sources, commits, and pushes to origin (AC4)", async 
 		const piSpec = active.profiles.pi.sources.find((s) => s.fetchable);
 		assert.ok(piSpec);
 		assert.equal(piSpec.contentHash, sha("spec content v1"));
+		// the excerpt is refreshed to the verbatim evidence, so it matches the hash
+		assert.equal(piSpec.excerpt, "spec content v1");
 
 		// the push landed on the bare remote
 		const remoteHead = execFileSync("git", ["rev-parse", "main"], {
@@ -142,6 +144,7 @@ test("approve on a changed (non-baseline) source updates its hash", async () => 
 		assert.equal(result.pushed, true);
 		const active = readActiveRegistry(paths.activeRegistryPath);
 		assert.equal(active.profiles.pi.sources[0].contentHash, sha("completely new"));
+		assert.equal(active.profiles.pi.sources[0].excerpt, "completely new");
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
@@ -192,6 +195,120 @@ test("approving a proposal with nothing to re-baseline is rejected", async () =>
 			approveProposal({ repoRoot: root, proposalId: "p-empty" }),
 			ApprovalError,
 		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("approval blocks a changed check that has no source evidence text", async () => {
+	const { root } = initRepo();
+	try {
+		const paths = registryPaths(root);
+		const registry = defaultRegistry();
+		registry.profiles.pi.sources[0].contentHash = sha("old");
+		writeActiveRegistry(paths.activeRegistryPath, registry);
+		git(root, ["add", ".skillmgr"]);
+		git(root, ["commit", "-m", "seed"]);
+		writeProposal(paths.attentionDir, {
+			id: "p-no-evidence",
+			createdAt: "2026-08-16T10:00:00.000Z",
+			createdBy: "manual-check",
+			baseRegistryVersion: "1.0.0",
+			status: "pending",
+			checks: [
+				{
+					agent: "pi",
+					url: "https://agentskills.io/specification",
+					status: "changed",
+					previousHash: sha("old"),
+					currentHash: sha("new"),
+					fetchedAt: "2026-08-16T10:00:00.000Z",
+					note: "source content changed",
+				},
+			],
+			changedCount: 1,
+			unreachableCount: 0,
+			blockedCount: 0,
+			summary: "1 source(s) changed",
+		});
+		await assert.rejects(
+			approveProposal({ repoRoot: root, proposalId: "p-no-evidence" }),
+			ApprovalError,
+		);
+		// nothing was committed or pushed
+		const active = readActiveRegistry(paths.activeRegistryPath);
+		assert.equal(active.registryVersion, "1.0.0");
+		assert.equal(active.profiles.pi.sources[0].contentHash, sha("old"));
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("approval re-baselines evidence but leaves behavior claims for later review", async () => {
+	const { root } = initRepo();
+	try {
+		const paths = registryPaths(root);
+		const registry = defaultRegistry();
+		registry.profiles.pi.sources[0].contentHash = sha("old");
+		writeActiveRegistry(paths.activeRegistryPath, registry);
+		git(root, ["add", ".skillmgr"]);
+		git(root, ["commit", "-m", "seed"]);
+
+		const beforeBehavior = JSON.parse(
+			JSON.stringify(registry.profiles.pi.behavior),
+		);
+		const beforeConstraints = JSON.parse(
+			JSON.stringify(registry.profiles.pi.constraints),
+		);
+
+		const fetchFn = async (): Promise<FetchResult> => ({
+			ok: true,
+			text: "brand new spec",
+		});
+		const proposal = await checkRegistrySources(registry, fetchFn, {
+			createdBy: "manual-check",
+			id: "p-behavior",
+			now: new Date("2026-08-16T10:00:00.000Z"),
+		});
+		writeProposal(paths.attentionDir, proposal);
+
+		await approveProposal({ repoRoot: root, proposalId: "p-behavior" });
+		const active = readActiveRegistry(paths.activeRegistryPath);
+		// evidence refreshed (hash + excerpt consistent) ...
+		const piSpec = active.profiles.pi.sources[0];
+		assert.equal(piSpec.contentHash, sha("brand new spec"));
+		assert.equal(piSpec.excerpt, "brand new spec");
+		// ... but interpreted claims are NOT auto-updated (review boundary)
+		assert.deepEqual(active.profiles.pi.behavior, beforeBehavior);
+		assert.deepEqual(active.profiles.pi.constraints, beforeConstraints);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("approve pushes the revision to remote main from a non-main branch (AC4)", async () => {
+	const { root, bare } = initRepo();
+	try {
+		git(root, ["checkout", "-b", "review/evidence"]);
+		const { proposalId } = await seedRegistryAndProposal(root, "spec content v1");
+		const result = await approveProposal({
+			repoRoot: root,
+			proposalId,
+			now: new Date("2026-08-16T10:05:00.000Z"),
+		});
+		assert.equal(result.pushed, true);
+		// the commit landed on remote main, not on the review branch
+		const remoteMain = execFileSync("git", ["rev-parse", "main"], {
+			cwd: bare,
+			encoding: "utf-8",
+		}).trim();
+		assert.equal(remoteMain, result.commitSha);
+		const refs = execFileSync("git", ["show-ref"], {
+			cwd: bare,
+			encoding: "utf-8",
+		});
+		assert.ok(refs.includes("refs/heads/main"));
+		assert.ok(!refs.includes("review/evidence"));
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

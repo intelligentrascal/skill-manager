@@ -18,8 +18,7 @@ export function isFirstFriday1000(date: Date): boolean {
 	const target = firstFridayOfMonth(date.getFullYear(), date.getMonth());
 	return (
 		date.getDate() === target.getDate() &&
-		date.getHours() >= HOUR &&
-		date.getHours() < 24
+		date.getHours() >= HOUR
 	);
 }
 
@@ -44,10 +43,17 @@ export interface RegistrySchedule {
 	stop(): void;
 }
 
+/** Month identity ("2026-7") used to fire at most once per calendar month. */
+function monthKey(date: Date): string {
+	return `${date.getFullYear()}-${date.getMonth()}`;
+}
+
 /**
- * Re-arming scheduler: fires `run` once per first-Friday 10:00 local time.
- * The timer re-arms on a capped interval (1 hour) so it never exceeds the
- * setTimeout ceiling and stays correct across long waits.
+ * Re-arming scheduler: fires `run` exactly once per first-Friday 10:00 local
+ * time. The timer re-arms on a capped interval (1 hour) so it never exceeds
+ * the setTimeout ceiling and stays correct across long waits; the hourly cap
+ * must not cause the check to re-run on later hours of the same first Friday,
+ * so a month key guard limits firing to once per month.
  */
 export function scheduleRegistryCheck(
 	run: () => void | Promise<void>,
@@ -56,17 +62,21 @@ export function scheduleRegistryCheck(
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	let stopped = false;
 	let nextRunAt = nextFirstFriday1000(new Date());
+	let lastFiredKey: string | null = null;
 
 	const arm = () => {
 		if (stopped) return;
+		const now = new Date();
 		const delay = Math.min(
-			msUntilNextFirstFriday1000(new Date()),
+			msUntilNextFirstFriday1000(now),
 			MAX_INTERVAL_MS,
 		);
-		nextRunAt = nextFirstFriday1000(new Date());
+		nextRunAt = nextFirstFriday1000(now);
 		timer = setTimeout(() => {
 			if (stopped) return;
-			if (isFirstFriday1000(new Date())) {
+			const firedAt = new Date();
+			if (isFirstFriday1000(firedAt) && monthKey(firedAt) !== lastFiredKey) {
+				lastFiredKey = monthKey(firedAt);
 				void run();
 			}
 			arm();
