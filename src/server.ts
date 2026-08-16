@@ -44,6 +44,16 @@ import { checkRegistrySources, fetchSourceContent } from "./evidenceCheck.ts";
 import { ApprovalError, approveProposal } from "./evidenceApprove.ts";
 import { nextFirstFriday1000, scheduleRegistryCheck } from "./evidenceSchedule.ts";
 import { buildAgentVariantMatrix } from "./variantMatrix.ts";
+import {
+	cachedAdaptationReview,
+	MemoryReviewCache,
+} from "./reviewCache.ts";
+
+// Resident cache for Adaptation Reviews (ticket #6). Keyed by
+// (skill, canonical revision, agent-profile revision); an unchanged pair reuses
+// the prior analysis without regenerating it. Pure/in-memory: no machine
+// paths, no filesystem.
+const adaptationReviewCache = new MemoryReviewCache();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const githubOriginMetadata = new GithubOriginMetadataCache(
@@ -151,6 +161,103 @@ function originDetails(name: string) {
 		}
 	}
 	return { summary, metadata };
+}
+
+/**
+ * Build an Adaptation Review for a skill given a baseline (current canonical)
+ * and an upstream revision. Upstream content is read from an explicit body,
+ * the manifest's pinned identity, or the detected upstream; when no content
+ * can be obtained, the honest error matches /api/update's stance. The result
+ * is returned through the resident cache (keyed by skill + canonical revision
+ * + agent-profile revision) so an unchanged pair costs no regeneration.
+ */
+async function runAdaptationReview(
+	name: string,
+	body: Record<string, unknown>,
+): Promise<ReturnType<typeof cachedAdaptationReview>> {
+	let manifest;
+	try {
+		manifest = loadRepoManifest();
+	} catch {
+		manifest = null;
+	}
+	const identity = manifest?.skills?.[name]?.identity;
+	const inv = getInventory();
+	const copies = inv.byName[name] ?? [];
+	const repoCopy = copies.find((copy) => copy.location === "repo");
+
+	let baselineContent: string;
+	let baselineRevision: string;
+	if (typeof body.baselineContent === "string") {
+		baselineContent = body.baselineContent;
+		baselineRevision = typeof body.baselineRevision === "string" ? body.baselineRevision : "provided";
+	} else if (repoCopy) {
+		baselineContent = readFileSync(repoCopy.path, "utf-8");
+		baselineRevision = identity?.pinnedRevision || "current";
+	} else {
+		throw new SyncError("no canonical (repo) copy is available as the baseline");
+	}
+
+	let upstreamContent: string;
+	let upstreamRevision: string;
+	if (typeof body.upstreamContent === "string") {
+		upstreamContent = body.upstreamContent;
+		upstreamRevision = typeof body.upstreamRevision === "string" ? body.upstreamRevision : "incoming";
+	} else {
+		const upstreamRevisionForFetch =
+			typeof body.upstreamRevision === "string"
+				? body.upstreamRevision
+				: identity?.pinnedRevision ?? "";
+		const source: { url: string; subpath: string } | null =
+			typeof body.upstreamUrl === "string" && typeof body.subpath === "string"
+				? { url: body.upstreamUrl as string, subpath: body.subpath as string }
+				: identity
+					? { url: identity.upstreamUrl, subpath: identity.subpath }
+					: copies[0]?.upstream
+						? { url: copies[0].upstream as string, subpath: "." }
+						: null;
+		upstreamRevision = upstreamRevisionForFetch;
+		if (!source || !upstreamRevision) {
+			throw new SyncError(
+				"no pinned upstream source for this skill - add an identity or supply upstreamContent",
+			);
+		}
+		const service = new GitUpstreamUpdateService();
+		try {
+			const snapshot = await service.fetchSnapshot(
+				{ url: source.url, subpath: source.subpath, pinnedRevision: upstreamRevision },
+				upstreamRevision,
+			);
+			const file = snapshot.files.find(
+				(f) => f.path.endsWith("SKILL.md") && typeof f.content === "string",
+			);
+			if (!file || typeof file.content !== "string") {
+				throw new SyncError("upstream SKILL.md not found at the requested revision");
+			}
+			upstreamContent = file.content;
+		} finally {
+			service.dispose();
+		}
+	}
+
+	let registry;
+	try {
+		registry = readActiveRegistry(evidencePaths().activeRegistryPath);
+	} catch {
+		registry = undefined;
+	}
+
+	return cachedAdaptationReview(
+		{
+			skill: name,
+			baselineRevision,
+			upstreamRevision,
+			baselineContent,
+			upstreamContent,
+			registry,
+		},
+		adaptationReviewCache,
+	);
 }
 
 // Scheduled check: fetch official sources and place a pending proposal in
@@ -390,6 +497,62 @@ const server = createServer(
 			const inv = getInventory();
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ actions: buildHealthActions(inv) }));
+			return;
+		}
+
+		if (
+			(req.method === "GET" || req.method === "POST") &&
+			url.pathname === "/api/adaptation-review"
+		) {
+			const queryName = url.searchParams.get("name");
+			let body: Record<string, unknown> = {};
+			if (req.method === "POST") {
+				try {
+					const parsed = (await readJsonBody(req)) as Record<string, unknown>;
+					if (parsed && typeof parsed === "object") body = parsed;
+				} catch {
+					body = {};
+				}
+			} else {
+				body = {};
+				const q = url.searchParams;
+				const pass = (key: string): string | undefined => {
+					const v = q.get(key);
+					return v === null ? undefined : v;
+				};
+				const br = pass("baselineRevision");
+				const ur = pass("upstreamRevision");
+				const uu = pass("upstreamUrl");
+				const sp = pass("subpath");
+				if (br) body.baselineRevision = br;
+				if (ur) body.upstreamRevision = ur;
+				if (uu) body.upstreamUrl = uu;
+				if (sp) body.subpath = sp;
+			}
+			const name = queryName || (typeof body.name === "string" ? body.name : "");
+			if (!name) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing skill name (?name or body.name)" }));
+				return;
+			}
+			try {
+				const review = await runAdaptationReview(name, body);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(review));
+			} catch (error) {
+				const badRequest = error instanceof SyncError;
+				res.writeHead(badRequest ? 409 : 502, {
+					"Content-Type": "application/json",
+				});
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error
+								? error.message
+								: "Adaptation review failed.",
+					}),
+				);
+			}
 			return;
 		}
 

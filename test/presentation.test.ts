@@ -85,7 +85,8 @@ test("agent variant matrix is honest, accessible, and stacked with the detail wo
 		assert.ok(html.includes(marker), `missing agent variant matrix contract: ${marker}`);
 	}
 	assert.ok(html.includes("Absent variant data stays Unknown"));
-	assert.ok(html.includes("AI-assisted Adaptation Review is the intended next stage"));
+	assert.ok(html.includes("Review adaptation"), "the variant matrix offers the Adaptation Review action");
+	assert.ok(html.includes("adapt-blocking"), "blocking conditions are rendered in coral");
 	assert.doesNotMatch(html, /edit variant/i);
 	assert.match(html, /@media \(max-width: 900px\)[\s\S]*?\.detail-grid\s*{[\s\S]*?grid-template-columns:\s*1fr/);
 	assert.match(html, /\.variant-diff[\s\S]*?overflow-wrap:\s*anywhere/);
