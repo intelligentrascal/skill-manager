@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skill Manager</title>
     <style>
-      /* Hallmark · redesign: operations workbench · hierarchy-first data surface
-       * direction: restrained instrument panel, no decorative claims
-       * contrast: dark + light reviewed against semantic tokens */
+      /* Origin workspace synthesis from the five approved Mobbin references:
+       * GitHub activity: dense chronological evidence records.
+       * Linear project detail: persistent navigation beside the primary record.
+       * Graphite activity panel: focused contextual evidence hierarchy.
+       * GitLab repository page: repository facts in an information rail.
+       * Vercel Git settings: explicit connected-repository treatment.
+       * Skill Manager keeps the dark Genome palette and does not copy reference branding. */
       :root {
         --bg: #0b0e12;
         --bg-raised: #10151b;
@@ -82,14 +86,19 @@
         -webkit-font-smoothing: antialiased;
       }
       button,
-      input {
+      input,
+      select,
+      textarea {
         font: inherit;
       }
       button {
         -webkit-tap-highlight-color: transparent;
       }
       button:focus-visible,
-      input:focus-visible {
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible,
+      a:focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
       }
@@ -100,7 +109,7 @@
       }
       .head {
         display: grid;
-        grid-template-columns: auto 1fr auto;
+        grid-template-columns: auto minmax(120px, 1fr) repeat(4, auto);
         align-items: center;
         gap: 18px;
         min-height: 72px;
@@ -752,82 +761,335 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      #drawer {
-        position: fixed;
-        inset: 0;
-        z-index: 100;
+      #skillWorkspace[hidden] {
         display: none;
-        background: rgba(5, 7, 10, 0.58);
-        backdrop-filter: blur(4px);
       }
-      #drawer.open {
-        display: block;
+      .wrap[data-detail-open="true"] #inventoryWorkspace {
+        display: none;
       }
-      #drawer .panel {
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: min(660px, 94vw);
-        background: var(--bg-raised);
-        border-left: 1px solid var(--line-strong);
-        box-shadow: var(--shadow);
-        display: flex;
-        flex-direction: column;
+      .skill-workspace {
+        min-width: 0;
+        padding: 22px 0 0;
+        animation: workspace-enter 160ms ease-out both;
       }
-      #drawer .ph {
+      @keyframes workspace-enter {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .skill-workspace-head {
         display: flex;
         align-items: center;
-        gap: 10px;
-        min-height: 72px;
-        padding: 17px 18px;
+        gap: 14px;
+        min-height: 48px;
+        margin-bottom: 16px;
         border-bottom: 1px solid var(--line-strong);
       }
-      #drawer .ph h2 {
-        min-width: 0;
-        overflow: hidden;
-        font: 700 16px/1.2 var(--mono);
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      #dProvenance {
-        display: none;
-      }
-      #dProvenance:not(:empty) {
+      .skill-back {
         display: inline-flex;
         align-items: center;
+        gap: 7px;
+        min-height: 34px;
+        padding: 0 10px;
         border: 1px solid var(--line-strong);
-        border-radius: 999px;
-        padding: 3px 7px;
+        border-radius: 6px;
+        background: var(--bg-raised);
         color: var(--ink-muted);
-        font: 700 8px/1 var(--mono);
+        cursor: pointer;
+        font: 700 9px/1 var(--mono);
         letter-spacing: 0.07em;
         text-transform: uppercase;
       }
-      #dProvenance.upstream {
-        border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
-        color: var(--accent);
-      }
-      #drawer .ph .x {
-        width: 32px;
-        height: 32px;
-        margin-left: auto;
-        border: 1px solid var(--line);
-        border-radius: 5px;
-        background: transparent;
-        color: var(--ink-muted);
-        cursor: pointer;
-        font-size: 19px;
-      }
-      #drawer .ph .x:hover {
+      .skill-back:hover {
         border-color: var(--accent);
         color: var(--accent);
       }
-      #drawer .pbody {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px 18px 32px;
+      .skill-workspace-heading {
+        min-width: 0;
       }
+      .skill-workspace-heading span {
+        display: block;
+        color: var(--ink-faint);
+        font: 8px/1 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .skill-workspace-heading h2 {
+        margin-top: 5px;
+        overflow: hidden;
+        font: 700 clamp(15px, 2vw, 20px)/1.2 var(--mono);
+        letter-spacing: -0.035em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .skill-workspace-state {
+        margin-left: auto;
+        color: var(--ink-faint);
+        font: 8px/1 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .detail-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .skill-primary,
+      .skill-operations {
+        min-width: 0;
+      }
+      .origin-hero {
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 18px;
+        border: 1px solid var(--line-strong);
+        border-radius: 12px;
+        background:
+          linear-gradient(120deg, color-mix(in srgb, var(--origin-color, var(--accent)) 9%, transparent), transparent 58%),
+          var(--surface);
+      }
+      .origin-hero::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: var(--origin-color, var(--accent));
+        content: "";
+      }
+      .origin-hero.github { --origin-color: var(--accent); }
+      .origin-hero.private { --origin-color: var(--info); }
+      .origin-hero.local { --origin-color: var(--good); }
+      .origin-hero.unknown { --origin-color: var(--bad); }
+      .origin-hero.loading { min-height: 230px; }
+      .origin-hero-inner {
+        padding: clamp(20px, 3vw, 30px);
+      }
+      .origin-kicker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--origin-color, var(--accent));
+        font: 800 8.5px/1 var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .origin-kicker::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 12px color-mix(in srgb, currentColor 60%, transparent);
+        content: "";
+      }
+      .origin-identity {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 15px;
+        align-items: center;
+        margin-top: 22px;
+      }
+      .origin-avatar,
+      .origin-mark {
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        border: 1px solid color-mix(in srgb, var(--origin-color, var(--accent)) 58%, var(--line));
+        border-radius: 10px;
+        background: var(--bg-raised);
+        color: var(--origin-color, var(--accent));
+        font: 800 17px/1 var(--mono);
+      }
+      .origin-avatar {
+        object-fit: cover;
+      }
+      .origin-name {
+        min-width: 0;
+        font: 750 clamp(20px, 3.1vw, 32px)/1.08 var(--mono);
+        letter-spacing: -0.055em;
+        overflow-wrap: anywhere;
+      }
+      .origin-name a {
+        color: inherit;
+        text-decoration-color: color-mix(in srgb, var(--origin-color, var(--accent)) 65%, transparent);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 5px;
+      }
+      .origin-subtitle {
+        margin-top: 7px;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+      .origin-facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 25px;
+        border-top: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+      }
+      .origin-fact {
+        min-width: 0;
+        padding: 12px 13px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .origin-fact span {
+        display: block;
+        color: var(--ink-faint);
+        font: 8px/1 var(--mono);
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+      .origin-fact strong {
+        display: block;
+        margin-top: 7px;
+        color: var(--ink);
+        font: 650 10.5px/1.45 var(--mono);
+        overflow-wrap: anywhere;
+      }
+      .origin-message {
+        max-width: 620px;
+        margin-top: 20px;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+      .origin-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+      }
+      .primary-action,
+      .secondary-action {
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        cursor: pointer;
+        font: 800 9px/1 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .primary-action {
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+      .secondary-action {
+        background: transparent;
+        color: var(--accent);
+      }
+      .primary-action:disabled,
+      .secondary-action:disabled {
+        cursor: wait;
+        opacity: 0.62;
+      }
+      .detail-section {
+        margin-bottom: 18px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--surface);
+      }
+      .detail-section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 42px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg-raised);
+      }
+      .detail-section-head h3 {
+        color: var(--ink-muted);
+        font: 750 9px/1 var(--mono);
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+      .detail-section-head span {
+        color: var(--ink-faint);
+        font: 8.5px/1 var(--mono);
+      }
+      .detail-section-body {
+        padding: 14px;
+      }
+      .evidence-row {
+        display: grid;
+        grid-template-columns: minmax(70px, 0.5fr) minmax(0, 1.5fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink-muted);
+        font: 10px/1.4 var(--mono);
+      }
+      .evidence-row:last-child { border-bottom: 0; }
+      .evidence-row strong { color: var(--ink); }
+      .evidence-row .sha { color: var(--ink-faint); font-size: 9px; }
+      .origin-history-item {
+        position: relative;
+        margin-left: 5px;
+        padding: 2px 0 15px 19px;
+        border-left: 1px solid var(--line-strong);
+      }
+      .origin-history-item::before {
+        position: absolute;
+        top: 4px;
+        left: -4px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        content: "";
+      }
+      .origin-history-item:last-child { padding-bottom: 2px; }
+      .origin-history-item strong { display: block; font: 650 10px var(--mono); }
+      .origin-history-item small { display: block; margin-top: 4px; color: var(--ink-faint); font-size: 10px; }
+      .assignment-panel {
+        margin-bottom: 18px;
+        border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--line));
+        border-radius: 9px;
+        background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+      }
+      .assignment-panel[hidden] { display: none; }
+      .assignment-form { display: grid; gap: 13px; padding: 16px; }
+      .assignment-form label {
+        display: grid;
+        gap: 6px;
+        color: var(--ink-faint);
+        font: 750 8px/1 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .assignment-form input,
+      .assignment-form select,
+      .assignment-form textarea {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        background: var(--bg-raised);
+        color: var(--ink);
+        padding: 9px 10px;
+        font: 11px/1.4 var(--mono);
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      .assignment-form textarea { min-height: 74px; resize: vertical; }
+      .assignment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .assignment-preview {
+        margin: 0 16px 16px;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--bg-raised);
+      }
+      .assignment-preview p { margin-top: 7px; color: var(--ink-muted); font-size: 11px; }
+      .assignment-preview code { color: var(--accent); font: 10px var(--mono); overflow-wrap: anywhere; }
       .meta {
         margin: 0 0 10px;
         color: var(--ink-muted);
@@ -1129,7 +1391,7 @@
       }
       @media (max-width: 900px) {
         .head {
-          grid-template-columns: 1fr auto;
+          grid-template-columns: 1fr repeat(4, auto);
           gap: 12px;
         }
         .head .st {
@@ -1168,6 +1430,44 @@
         .mode-rail button {
           flex: 1;
           justify-content: center;
+        }
+        .wrap[data-detail-open="true"] {
+          width: 100%;
+          max-width: none;
+          min-height: 100dvh;
+          padding: 0;
+        }
+        .wrap[data-detail-open="true"] .head,
+        .wrap[data-detail-open="true"] .mode-rail {
+          display: none;
+        }
+        .wrap[data-detail-open="true"] .workspace-shell {
+          display: block;
+        }
+        .wrap[data-detail-open="true"] .skill-workspace {
+          min-height: 100dvh;
+          padding: 0 22px 42px;
+        }
+        .wrap[data-detail-open="true"] .skill-workspace-head {
+          position: sticky;
+          z-index: 20;
+          top: 0;
+          min-height: 64px;
+          margin: 0 -22px 18px;
+          padding: 0 22px;
+          background: color-mix(in srgb, var(--bg) 93%, transparent);
+          backdrop-filter: blur(12px);
+        }
+        .detail-grid {
+          grid-template-columns: 1fr;
+        }
+        .skill-operations {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+        .skill-operations .detail-section {
+          margin-bottom: 0;
         }
       }
       @media (max-width: 770px) {
@@ -1276,14 +1576,44 @@
         .portability-issue {
           margin-left: 0;
         }
-        #drawer .panel {
-          width: 100%;
+        .wrap[data-detail-open="true"] .skill-workspace {
+          padding: 0 14px 30px;
         }
-        #drawer .ph {
-          padding: 15px 14px;
+        .wrap[data-detail-open="true"] .skill-workspace-head {
+          margin-right: -14px;
+          margin-left: -14px;
+          padding: 0 14px;
         }
-        #drawer .pbody {
-          padding: 16px 14px 28px;
+        .skill-workspace-state {
+          display: none;
+        }
+        .origin-hero-inner {
+          padding: 20px 17px;
+        }
+        .origin-identity {
+          align-items: start;
+        }
+        .origin-avatar,
+        .origin-mark {
+          width: 44px;
+          height: 44px;
+          border-radius: 8px;
+          font-size: 14px;
+        }
+        .origin-facts,
+        .assignment-grid,
+        .skill-operations {
+          grid-template-columns: 1fr;
+        }
+        .origin-fact {
+          padding: 11px;
+        }
+        .evidence-row {
+          grid-template-columns: 1fr auto;
+        }
+        .evidence-row span:nth-child(2) {
+          grid-column: 1 / -1;
+          grid-row: 2;
         }
         .copies .c {
           grid-template-columns: 70px 1fr auto;
@@ -1301,7 +1631,7 @@
     </style>
   </head>
   <body>
-    <div class="wrap" data-app-mode="fleet">
+    <div class="wrap" data-app-mode="fleet" data-detail-open="false">
       <div class="head">
         <h1>Skill Manager</h1>
         <span class="st" id="gen">scanning...</span>
@@ -1325,6 +1655,7 @@
           </button>
         </nav>
         <div class="workspace">
+          <div id="inventoryWorkspace">
           <div class="stats" id="stats"></div>
       <section class="health" id="health" aria-labelledby="healthTitle">
         <div class="health-head">
@@ -1392,18 +1723,39 @@
       </table>
       <div class="rows" id="rows" hidden></div>
       <footer id="foot"></footer>
+          </div>
+          <section
+            class="skill-workspace"
+            id="skillWorkspace"
+            aria-labelledby="skillWorkspaceTitle"
+            tabindex="-1"
+            hidden
+          >
+            <header class="skill-workspace-head">
+              <button class="skill-back" id="skillBackBtn" type="button">
+                <span aria-hidden="true">&larr;</span> Back
+              </button>
+              <div class="skill-workspace-heading">
+                <span>Skill record</span>
+                <h2 id="skillWorkspaceTitle">Skill</h2>
+              </div>
+              <span class="skill-workspace-state" id="skillWorkspaceState">Evidence workspace</span>
+            </header>
+            <div class="detail-grid">
+              <div class="skill-primary" id="skillEvidence">
+                <section class="origin-hero loading" id="originHero" aria-live="polite">
+                  <div class="origin-hero-inner">
+                    <div class="origin-kicker">Loading origin evidence</div>
+                  </div>
+                </section>
+                <section class="assignment-panel" id="originAssignment" hidden></section>
+                <div id="canonicalEvidence"></div>
+              </div>
+              <aside class="skill-operations" id="skillOperations" aria-label="Skill evidence and operations"></aside>
+            </div>
+          </section>
         </div>
       </main>
-    </div>
-    <div id="drawer">
-      <div class="panel">
-        <div class="ph">
-          <h2 id="dTitle"></h2>
-          <span id="dProvenance" aria-label="Provenance"></span>
-          <button class="x" id="drawerClose" aria-label="Close">&times;</button>
-        </div>
-        <div class="pbody" id="dBody"></div>
-      </div>
     </div>
     <div id="toast"></div>
     <script>
@@ -1418,6 +1770,8 @@
       let pulseNames = new Set();
       let upstreamResults = {}; // name -> { stale, error } from /api/upstream-batch
       let COMPAT = null;
+      let detailReturnFocus = null;
+      let detailRequest = 0;
       const COMPAT_AGENTS = ["pi", "claude", "codex", "opencode"];
       const REASON_TEXT = {
         "found-global": "Sees this skill via a global path",
@@ -1685,6 +2039,8 @@
       }
 
       function setAppMode(mode) {
+        const detailOpen = !document.getElementById("skillWorkspace").hidden;
+        if (detailOpen) closeSkillWorkspace({ restoreFocus: false });
         if (mode === appMode) return;
         appMode = mode;
         document.querySelector(".wrap").dataset.appMode = mode;
@@ -1992,19 +2348,488 @@
         return out.slice(0, 120); // cap very long diffs
       }
 
+      function formatTimestamp(value) {
+        if (!value || Number.isNaN(Date.parse(value))) return "Unavailable";
+        return new Intl.DateTimeFormat(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date(value));
+      }
+
+      function detailSection(title, meta) {
+        const section = el("section", "detail-section");
+        const head = el("div", "detail-section-head");
+        head.appendChild(el("h3", "", title));
+        if (meta) head.appendChild(el("span", "", meta));
+        const body = el("div", "detail-section-body");
+        section.append(head, body);
+        return { section, body };
+      }
+
+      function appendOriginFact(wrap, label, value) {
+        const fact = el("div", "origin-fact");
+        fact.appendChild(el("span", "", label));
+        fact.appendChild(el("strong", "", value));
+        wrap.appendChild(fact);
+      }
+
+      function repositoryFromOrigin(origin) {
+        try {
+          const url = new URL(origin.identity.upstreamUrl);
+          const parts = url.pathname.replace(/\.git$/, "").split("/").filter(Boolean);
+          if (url.hostname !== "github.com" || parts.length < 2) return null;
+          return {
+            owner: parts[0],
+            repository: parts[1],
+            url: "https://github.com/" + parts[0] + "/" + parts[1],
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      function originMark(text) {
+        return (text || "?").slice(0, 2).toUpperCase();
+      }
+
+      function renderOriginHero(name, origin, skillData) {
+        const hero = document.getElementById("originHero");
+        const assignment = document.getElementById("originAssignment");
+        assignment.hidden = true;
+        assignment.textContent = "";
+        hero.textContent = "";
+        hero.className = "origin-hero " + origin.state;
+        const inner = el("div", "origin-hero-inner");
+        const labels = {
+          github: "Verified GitHub origin",
+          private: "Private / community origin",
+          local: "Mine / local origin",
+          unknown: "Origin unknown",
+        };
+        inner.appendChild(el("div", "origin-kicker", labels[origin.state] || labels.unknown));
+
+        if (origin.state === "github" && origin.identity) {
+          const repository = repositoryFromOrigin(origin);
+          const metadata = origin.githubMetadata;
+          const owner = metadata?.ownerLogin || repository?.owner || "Unknown owner";
+          const repoName = metadata?.repositoryName || repository?.repository || "Unknown repository";
+          const identity = el("div", "origin-identity");
+          if (metadata?.ownerAvatarUrl) {
+            const avatar = document.createElement("img");
+            avatar.className = "origin-avatar";
+            avatar.src = metadata.ownerAvatarUrl;
+            avatar.alt = owner + " avatar";
+            avatar.width = 54;
+            avatar.height = 54;
+            identity.appendChild(avatar);
+          } else {
+            identity.appendChild(el("div", "origin-mark", originMark(owner)));
+          }
+          const title = el("div");
+          const heading = el("div", "origin-name");
+          const link = document.createElement("a");
+          link.href = metadata?.repositoryUrl || repository?.url || origin.identity.upstreamUrl;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = owner + "/" + repoName;
+          heading.appendChild(link);
+          title.appendChild(heading);
+          title.appendChild(
+            el("div", "origin-subtitle", "Repository and SKILL.md identity verified at the pinned revision."),
+          );
+          identity.appendChild(title);
+          inner.appendChild(identity);
+
+          const facts = el("div", "origin-facts");
+          appendOriginFact(
+            facts,
+            "Cached stars",
+            typeof metadata?.stars === "number"
+              ? new Intl.NumberFormat().format(metadata.stars)
+              : "Unavailable",
+          );
+          appendOriginFact(facts, "Pinned revision", origin.identity.pinnedRevision);
+          appendOriginFact(
+            facts,
+            "Exact SKILL.md",
+            origin.identity.subpath === "."
+              ? "SKILL.md"
+              : origin.identity.subpath.replace(/\/$/, "") + "/SKILL.md",
+          );
+          appendOriginFact(
+            facts,
+            "Origin verified",
+            formatTimestamp(origin.current?.verifiedAt || origin.current?.at),
+          );
+          appendOriginFact(
+            facts,
+            "GitHub facts refreshed",
+            metadata ? formatTimestamp(metadata.verifiedAt) : "Not refreshed",
+          );
+          appendOriginFact(facts, "Canonical status", origin.managed ? "Managed in repository" : "Discovered only");
+          inner.appendChild(facts);
+          inner.appendChild(
+            el(
+              "p",
+              "origin-message",
+              metadata
+                ? "Owner, repository, avatar, and star count come from the local GitHub fact cache."
+                : "Repository identity is verified. GitHub owner metadata and stars are unavailable until you explicitly refresh them.",
+            ),
+          );
+          const actions = el("div", "origin-actions");
+          const refresh = el("button", "secondary-action", "Refresh GitHub facts");
+          refresh.type = "button";
+          refresh.addEventListener("click", async () => {
+            refresh.disabled = true;
+            refresh.textContent = "Refreshing...";
+            try {
+              const response = await fetch("/api/origin/refresh", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name }),
+              });
+              const nextOrigin = await response.json();
+              if (!response.ok) throw new Error(nextOrigin.error || "GitHub refresh failed");
+              renderOriginHero(name, nextOrigin, skillData);
+              showToast("GitHub facts refreshed");
+            } catch (error) {
+              refresh.disabled = false;
+              refresh.textContent = "Refresh GitHub facts";
+              showToast(error instanceof Error ? error.message : "GitHub refresh failed");
+            }
+          });
+          actions.appendChild(refresh);
+          inner.appendChild(actions);
+        } else if (origin.state === "private") {
+          const current = origin.current || {};
+          const identity = el("div", "origin-identity");
+          identity.appendChild(el("div", "origin-mark", "PC"));
+          const title = el("div");
+          title.appendChild(el("div", "origin-name", "Private community source"));
+          title.appendChild(el("div", "origin-subtitle", "Attributed, intentionally unverified"));
+          identity.appendChild(title);
+          inner.appendChild(identity);
+          const facts = el("div", "origin-facts");
+          appendOriginFact(facts, "Attribution", current.attribution || "Unavailable");
+          appendOriginFact(facts, "Assigned", formatTimestamp(current.at));
+          appendOriginFact(facts, "Verification", "Unverified private source");
+          appendOriginFact(facts, "GitHub facts", "Not claimed");
+          inner.appendChild(facts);
+          inner.appendChild(
+            el("p", "origin-message", "This origin does not claim a public GitHub owner, stars, repository freshness, or pinned revision."),
+          );
+        } else if (origin.state === "local") {
+          const current = origin.current || {};
+          const identity = el("div", "origin-identity");
+          identity.appendChild(el("div", "origin-mark", "ME"));
+          const title = el("div");
+          title.appendChild(el("div", "origin-name", "User-owned canonical skill"));
+          title.appendChild(el("div", "origin-subtitle", "No external upstream is claimed"));
+          identity.appendChild(title);
+          inner.appendChild(identity);
+          const facts = el("div", "origin-facts");
+          appendOriginFact(facts, "Ownership note", current.ownershipNote || "No note recorded");
+          appendOriginFact(facts, "Assigned", formatTimestamp(current.at));
+          appendOriginFact(facts, "Canonical status", origin.managed ? "Managed in repository" : "Discovered only");
+          appendOriginFact(facts, "GitHub facts", "Not applicable");
+          inner.appendChild(facts);
+          inner.appendChild(
+            el("p", "origin-message", "This is a local origin. The workspace does not infer an owner, public repository, stars, or upstream freshness."),
+          );
+        } else {
+          const identity = el("div", "origin-identity");
+          identity.appendChild(el("div", "origin-mark", "?"));
+          const title = el("div");
+          title.appendChild(el("div", "origin-name", name));
+          title.appendChild(el("div", "origin-subtitle", "No canonical origin evidence is recorded"));
+          identity.appendChild(title);
+          inner.appendChild(identity);
+          inner.appendChild(
+            el("p", "origin-message", "Upstream updates are unavailable until you review and assign a public, private, or local origin."),
+          );
+          const actions = el("div", "origin-actions");
+          const assign = el("button", "primary-action", "Assign origin");
+          assign.type = "button";
+          assign.addEventListener("click", () => renderOriginAssignment(name, skillData));
+          actions.appendChild(assign);
+          inner.appendChild(actions);
+        }
+        hero.appendChild(inner);
+      }
+
+      function formField(labelText, control) {
+        const label = document.createElement("label");
+        label.appendChild(document.createTextNode(labelText));
+        label.appendChild(control);
+        return label;
+      }
+
+      function renderOriginAssignment(name, skillData) {
+        const panel = document.getElementById("originAssignment");
+        panel.hidden = false;
+        panel.textContent = "";
+        const heading = el("div", "detail-section-head");
+        heading.appendChild(el("h3", "", "Assign canonical origin"));
+        heading.appendChild(el("span", "", "Preview before commit"));
+        panel.appendChild(heading);
+        const form = el("form", "assignment-form");
+        const type = document.createElement("select");
+        for (const [value, text] of [
+          ["github", "Verified public GitHub"],
+          ["private", "Private / community"],
+          ["local", "Mine / local"],
+        ]) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = text;
+          type.appendChild(option);
+        }
+        form.appendChild(formField("Origin type", type));
+        const reason = document.createElement("textarea");
+        reason.required = true;
+        reason.placeholder = "Why is this the canonical origin?";
+        form.appendChild(formField("Assignment reason", reason));
+        const specific = el("div", "assignment-grid");
+        form.appendChild(specific);
+        const actions = el("div", "origin-actions");
+        const previewButton = el("button", "primary-action", "Preview assignment");
+        previewButton.type = "submit";
+        const cancel = el("button", "secondary-action", "Cancel");
+        cancel.type = "button";
+        cancel.addEventListener("click", () => {
+          panel.hidden = true;
+          panel.textContent = "";
+          document.querySelector("#originHero .primary-action")?.focus();
+        });
+        actions.append(previewButton, cancel);
+        form.appendChild(actions);
+        panel.appendChild(form);
+
+        let fields = {};
+        const renderSpecific = () => {
+          specific.textContent = "";
+          fields = {};
+          if (type.value === "github") {
+            const url = document.createElement("input");
+            url.type = "url";
+            url.required = true;
+            url.placeholder = "https://github.com/owner/repository";
+            const subpath = document.createElement("input");
+            subpath.required = true;
+            subpath.placeholder = "skills/example";
+            specific.append(formField("Repository URL", url), formField("Skill subpath", subpath));
+            fields = { url, subpath };
+            return;
+          }
+          const source = document.createElement("select");
+          skillData.copies.forEach((copy, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = copy.location + " copy · " + (copy.sha || "").slice(0, 10);
+            source.appendChild(option);
+          });
+          specific.appendChild(formField("Canonical copy", source));
+          if (type.value === "private") {
+            const attribution = document.createElement("input");
+            attribution.required = true;
+            attribution.placeholder = "Community, author, or source note";
+            const url = document.createElement("input");
+            url.type = "url";
+            url.placeholder = "Optional credential-free source URL";
+            specific.append(formField("Attribution", attribution), formField("Source URL", url));
+            fields = { source, attribution, url };
+          } else {
+            const ownershipNote = document.createElement("input");
+            ownershipNote.placeholder = "Optional ownership note";
+            specific.appendChild(formField("Ownership note", ownershipNote));
+            fields = { source, ownershipNote };
+          }
+        };
+        type.addEventListener("change", renderSpecific);
+        renderSpecific();
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          previewButton.disabled = true;
+          previewButton.textContent = "Validating...";
+          const origin = { type: type.value, reason: reason.value.trim() };
+          const request = { name, origin };
+          if (type.value === "github") {
+            origin.url = fields.url.value.trim();
+            origin.subpath = fields.subpath.value.trim();
+          } else {
+            const sourceCopy = skillData.copies[Number(fields.source.value)];
+            if (sourceCopy) request.sourcePath = sourceCopy.path;
+            if (type.value === "private") {
+              origin.attribution = fields.attribution.value.trim();
+              if (fields.url.value.trim()) origin.url = fields.url.value.trim();
+            } else if (fields.ownershipNote.value.trim()) {
+              origin.ownershipNote = fields.ownershipNote.value.trim();
+            }
+          }
+          try {
+            const response = await fetch("/api/origin/preview", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(request),
+            });
+            const preview = await response.json();
+            if (!response.ok) throw new Error(preview.error || "Origin preview failed");
+            previewButton.disabled = false;
+            previewButton.textContent = "Preview assignment";
+            renderOriginAssignmentPreview(name, request, preview, panel);
+          } catch (error) {
+            previewButton.disabled = false;
+            previewButton.textContent = "Preview assignment";
+            showToast(error instanceof Error ? error.message : "Origin preview failed");
+          }
+        });
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        type.focus();
+      }
+
+      function renderOriginAssignmentPreview(name, request, preview, panel) {
+        panel.querySelector(".assignment-preview")?.remove();
+        const review = el("div", "assignment-preview");
+        review.appendChild(el("strong", "", "Verified import preview"));
+        review.appendChild(el("p", "", "Canonical target: " + preview.repoRelativePath));
+        review.appendChild(el("p", "", "Content bytes: " + preview.contentBytes));
+        const hash = el("p", "", "Content hash: ");
+        hash.appendChild(el("code", "", preview.contentSha));
+        review.appendChild(hash);
+        if (preview.pinnedRevision) {
+          const pin = el("p", "", "Pinned revision: ");
+          pin.appendChild(el("code", "", preview.pinnedRevision));
+          review.appendChild(pin);
+        }
+        review.appendChild(
+          el("p", "", "No files change until you confirm this exact content hash."),
+        );
+        const actions = el("div", "origin-actions");
+        const confirm = el("button", "primary-action", "Confirm assignment");
+        confirm.type = "button";
+        confirm.addEventListener("click", async () => {
+          if (!window.confirm("Commit this reviewed origin and canonical content?")) return;
+          confirm.disabled = true;
+          confirm.textContent = "Assigning...";
+          try {
+            const response = await fetch("/api/origin/assign", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...request,
+                expectedContentSha: preview.contentSha,
+                ...(preview.pinnedRevision ? { pinnedRevision: preview.pinnedRevision } : {}),
+              }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Origin assignment failed");
+            await load();
+            await openSkill(name);
+            showToast(
+              result.pushed
+                ? "Origin assigned and pushed"
+                : "Origin assigned; verified commit is ready for push retry",
+            );
+          } catch (error) {
+            confirm.disabled = false;
+            confirm.textContent = "Confirm assignment";
+            showToast(error instanceof Error ? error.message : "Origin assignment failed");
+          }
+        });
+        const revise = el("button", "secondary-action", "Revise");
+        revise.type = "button";
+        revise.addEventListener("click", () => review.remove());
+        actions.append(confirm, revise);
+        review.appendChild(actions);
+        panel.appendChild(review);
+        review.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      function renderOriginHistory(origin, mount) {
+        if (!origin.current) return;
+        const entries = [...(origin.history || []), origin.current];
+        const history = detailSection("Origin record", entries.length + (entries.length === 1 ? " entry" : " entries"));
+        entries.slice().reverse().forEach((entry, index) => {
+          const item = el("div", "origin-history-item");
+          item.appendChild(
+            el("strong", "", (index === 0 ? "Current · " : "Prior · ") + entry.type),
+          );
+          item.appendChild(el("small", "", formatTimestamp(entry.at) + " · " + entry.reason));
+          if (entry.attribution) item.appendChild(el("small", "", "Attribution: " + entry.attribution));
+          history.body.appendChild(item);
+        });
+        mount.appendChild(history.section);
+      }
+
+      function closeSkillWorkspace({ restoreFocus = true } = {}) {
+        const workspace = document.getElementById("skillWorkspace");
+        if (workspace.hidden) return;
+        detailRequest += 1;
+        workspace.hidden = true;
+        document.querySelector(".wrap").dataset.detailOpen = "false";
+        if (restoreFocus && detailReturnFocus?.isConnected) detailReturnFocus.focus();
+        detailReturnFocus = null;
+      }
+
       async function openSkill(name) {
-        const r = await fetch("/api/skill?name=" + encodeURIComponent(name));
-        const d = await r.json();
-        document.getElementById("dTitle").textContent = name;
-        const provenance =
-          d.copies.find((copy) => copy.location === "repo")?.provenance ||
-          d.copies[0]?.provenance ||
-          "";
-        const provenanceBadge = document.getElementById("dProvenance");
-        provenanceBadge.textContent = provenance;
-        provenanceBadge.className = provenance ? provenance : "";
-        const body = document.getElementById("dBody");
-        body.textContent = "";
+        const requestId = ++detailRequest;
+        const workspace = document.getElementById("skillWorkspace");
+        if (workspace.hidden) detailReturnFocus = document.activeElement;
+        workspace.hidden = false;
+        workspace.setAttribute("aria-busy", "true");
+        document.querySelector(".wrap").dataset.detailOpen = "true";
+        document.getElementById("skillWorkspaceTitle").textContent = name;
+        document.getElementById("skillWorkspaceState").textContent = "Loading evidence";
+        const hero = document.getElementById("originHero");
+        hero.className = "origin-hero loading";
+        hero.textContent = "";
+        const loading = el("div", "origin-hero-inner");
+        loading.appendChild(el("div", "origin-kicker", "Loading origin evidence"));
+        hero.appendChild(loading);
+        document.getElementById("canonicalEvidence").textContent = "";
+        document.getElementById("skillOperations").textContent = "";
+        document.getElementById("originAssignment").hidden = true;
+        document.getElementById("skillBackBtn").focus();
+
+        let r;
+        let originResponse;
+        try {
+          [r, originResponse] = await Promise.all([
+            fetch("/api/skill?name=" + encodeURIComponent(name)),
+            fetch("/api/origin?name=" + encodeURIComponent(name)),
+          ]);
+          if (!r.ok || !originResponse.ok) throw new Error("Skill evidence is unavailable.");
+        } catch (error) {
+          if (requestId !== detailRequest) return;
+          hero.className = "origin-hero unknown";
+          hero.textContent = "";
+          const failed = el("div", "origin-hero-inner");
+          failed.appendChild(el("div", "origin-kicker", "Evidence unavailable"));
+          failed.appendChild(
+            el("p", "origin-message", error instanceof Error ? error.message : "Skill evidence is unavailable."),
+          );
+          hero.appendChild(failed);
+          workspace.removeAttribute("aria-busy");
+          return;
+        }
+        const [d, origin] = await Promise.all([r.json(), originResponse.json()]);
+        if (requestId !== detailRequest) return;
+        renderOriginHero(name, origin, d);
+        document.getElementById("skillWorkspaceState").textContent = origin.state + " origin";
+        const canonicalMount = document.getElementById("canonicalEvidence");
+        const canonical = detailSection("Canonical skill evidence", statusLabel(statusOf(name)));
+        canonicalMount.appendChild(canonical.section);
+        const body = canonical.body;
+        const operations = document.getElementById("skillOperations");
+        const fleet = detailSection(
+          "Fleet evidence",
+          d.copies.length + (d.copies.length === 1 ? " copy" : " copies"),
+        );
+        operations.appendChild(fleet.section);
+        const operationsBody = fleet.body;
+        workspace.removeAttribute("aria-busy");
         const meta1 = el(
           "div",
           "meta",
@@ -2015,7 +2840,7 @@
         );
         const copiesWrap = el("div", "copies");
         for (const c of d.copies) {
-          const row = el("div", "c");
+          const row = el("div", "evidence-row");
           row.appendChild(el("span", "", c.location));
           row.appendChild(el("span", "", (c.mtimeISO || "").slice(0, 10)));
           row.appendChild(el("span", "sha", (c.sha || "").slice(0, 10)));
@@ -2068,7 +2893,7 @@
             }
             section.appendChild(row);
           }
-          body.appendChild(section);
+          operationsBody.appendChild(section);
         }
         // Explain: how (and whether) each runtime discovers this skill.
         // Reason codes are the contract; the prose below is UI-side per the
@@ -2077,7 +2902,7 @@
         explainSection.appendChild(
           el("h3", "", "Explain · who sees this skill"),
         );
-        body.appendChild(explainSection);
+        operationsBody.appendChild(explainSection);
         const explainStatus = el("div", "portability-issue", "Loading...");
         explainSection.appendChild(explainStatus);
         fetch("/api/explain?name=" + encodeURIComponent(name))
@@ -2189,6 +3014,11 @@
             body.appendChild(pre);
           }
         }
+        renderOriginHistory(origin, operations);
+        const actionPanel = detailSection("Safe operations", "Explicit actions only");
+        const actionBody = actionPanel.body;
+        let hasActions = false;
+        operations.appendChild(actionPanel.section);
         const repoCopy = d.copies.find((copy) => copy.location === "repo");
         if (statusOf(name) === "drift" && repoCopy) {
           const syncRow = el("div", "meta");
@@ -2203,7 +3033,7 @@
               const preview = await response.json();
               if (!response.ok)
                 throw new Error(preview.error || "Preview failed");
-              renderSyncPreview(preview, body);
+              renderSyncPreview(preview, actionBody);
               syncButton.remove();
             } catch (error) {
               syncButton.disabled = false;
@@ -2214,7 +3044,8 @@
             }
           });
           syncRow.appendChild(syncButton);
-          body.appendChild(syncRow);
+          actionBody.appendChild(syncRow);
+          hasActions = true;
         }
 
         // upstream check
@@ -2241,9 +3072,10 @@
             }
           });
           row.appendChild(btn);
-          body.appendChild(row);
+          actionBody.appendChild(row);
+          hasActions = true;
         }
-        document.getElementById("drawer").classList.add("open");
+        if (!hasActions) actionPanel.section.remove();
       }
 
       function showToast(message) {
@@ -2326,8 +3158,8 @@
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || "Sync failed");
-            document.getElementById("drawer").classList.remove("open");
             await load();
+            await openSkill(preview.name);
             showToast(
               result.synced.length === 1
                 ? "Synced 1 copy"
@@ -2353,12 +3185,15 @@
         body.appendChild(panel);
       }
 
-      document.getElementById("drawer").addEventListener("click", (ev) => {
-        if (ev.target.id === "drawer")
-          document.getElementById("drawer").classList.remove("open");
+      document.getElementById("skillBackBtn").addEventListener("click", () => {
+        closeSkillWorkspace();
       });
-      document.getElementById("drawerClose").addEventListener("click", () => {
-        document.getElementById("drawer").classList.remove("open");
+      document.addEventListener("keydown", (event) => {
+        if (document.getElementById("skillWorkspace").hidden) return;
+        if (event.key === "Escape" || (event.altKey && event.key === "ArrowLeft")) {
+          event.preventDefault();
+          closeSkillWorkspace();
+        }
       });
       document
         .getElementById("genomeViewBtn")

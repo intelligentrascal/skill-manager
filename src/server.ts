@@ -4,6 +4,7 @@ import {
 	type ServerResponse,
 } from "node:http";
 import { readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadRepoManifest, scanAll } from "./scanner.ts";
@@ -29,6 +30,10 @@ import { PORT } from "./config.ts";
 import { OriginImportService, type AssignOriginRequest } from "./import.ts";
 import { summarizeOrigin } from "./origin.ts";
 import {
+	createGithubRepositoryReader,
+	GithubOriginMetadataCache,
+} from "./githubOriginMetadata.ts";
+import {
 	evidenceRegistryRoot,
 	listProposals,
 	readActiveRegistry,
@@ -40,6 +45,16 @@ import { ApprovalError, approveProposal } from "./evidenceApprove.ts";
 import { nextFirstFriday1000, scheduleRegistryCheck } from "./evidenceSchedule.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const githubOriginMetadata = new GithubOriginMetadataCache(
+	join(
+		process.env.SM_CACHE_DIR ?? join(homedir(), ".skill-manager"),
+		"github-origins.json",
+	),
+	createGithubRepositoryReader({
+		apiBaseUrl: process.env.SM_GITHUB_API_BASE,
+		token: process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN,
+	}),
+);
 
 // Never let an unhandled rejection or exception kill the server - log it and
 // keep serving. (A handler that throws after writeHead used to crash node.)
@@ -112,6 +127,29 @@ function getInventory() {
 
 function evidencePaths() {
 	return registryPaths(evidenceRegistryRoot());
+}
+
+function originDetails(name: string) {
+	const inv = getInventory();
+	const copies = inv.byName[name] ?? [];
+	const managed = copies.some((copy) => copy.location === "repo");
+	let manifest;
+	try {
+		manifest = loadRepoManifest();
+	} catch {
+		manifest = null;
+	}
+	const record = manifest?.skills?.[name];
+	const summary = summarizeOrigin(record?.origin, record?.identity, managed);
+	let metadata = null;
+	if (summary.state === "github" && summary.identity) {
+		try {
+			metadata = githubOriginMetadata.get(summary.identity);
+		} catch {
+			metadata = null;
+		}
+	}
+	return { summary, metadata };
 }
 
 // Scheduled check: fetch official sources and place a pending proposal in
@@ -782,31 +820,67 @@ const server = createServer(
 		}
 
 		if (req.method === "GET" && url.pathname === "/api/origin") {
-			// Current origin state for a skill, with the honesty contract:
-			// identity (a GitHub fact) is returned only for a github origin.
+			// Cache-only origin read. This route never contacts GitHub.
 			const name = url.searchParams.get("name");
 			if (!name) {
 				res.writeHead(400, { "Content-Type": "application/json" });
 				res.end(JSON.stringify({ error: "Missing ?name parameter" }));
 				return;
 			}
-			const inv = getInventory();
-			const copies = inv.byName[name] ?? [];
-			const managed = copies.some((c) => c.location === "repo");
-			let manifest;
-			try {
-				manifest = loadRepoManifest();
-			} catch {
-				manifest = null;
-			}
-			const record = manifest?.skills?.[name];
-			const summary = summarizeOrigin(
-				record?.origin,
-				record?.identity,
-				managed,
-			);
+			const { summary, metadata } = originDetails(name);
 			res.writeHead(200, { "Content-Type": "application/json" });
-			res.end(JSON.stringify({ name, ...summary }));
+			res.end(
+				JSON.stringify({ name, ...summary, githubMetadata: metadata }),
+			);
+			return;
+		}
+
+		if (req.method === "POST" && url.pathname === "/api/origin/refresh") {
+			// The only origin-workspace route that contacts GitHub. Existing cached
+			// facts remain untouched if validation or the network request fails.
+			try {
+				const body = await readJsonBody(req);
+				const name = (body as { name?: unknown })?.name;
+				if (typeof name !== "string" || !name.trim()) {
+					throw new SyncError("Origin refresh requests need a skill name.");
+				}
+				const { summary } = originDetails(name);
+				if (summary.state !== "github" || !summary.identity) {
+					res.writeHead(409, { "Content-Type": "application/json" });
+					res.end(
+						JSON.stringify({
+							error:
+								"Only a verified public GitHub origin can refresh GitHub facts.",
+						}),
+					);
+					return;
+				}
+				const metadata = await githubOriginMetadata.refresh(
+					summary.identity,
+					new Date().toISOString(),
+				);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						name,
+						...summary,
+						githubMetadata: metadata,
+					}),
+				);
+			} catch (error) {
+				const badRequest = error instanceof SyncError;
+				res.writeHead(badRequest ? 400 : 502, {
+					"Content-Type": "application/json",
+				});
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error
+								? error.message
+								: "GitHub metadata refresh failed.",
+					}),
+				);
+			}
 			return;
 		}
 
