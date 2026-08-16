@@ -71,6 +71,10 @@ Ask the useful question directly: why does agent X see skill Y? Per-agent answer
 
 Every skill knows where it came from. A committed `skillmgr.yaml` records provenance (upstream / mine / promoted / upstream-edited), the canonical upstream URL and subpath, and a pinned revision. Frontmatter is only a suggested import - the manifest is the authority.
 
+### Canonical origins
+
+A skill without a managed canonical copy can be assigned one of three honest origins - verified public GitHub, private/community, or mine/local - with the origin evidence and an append-only history recorded in `skillmgr.yaml`. Public GitHub origins validate the repository and exact `SKILL.md` subpath, then pin a revision; private origins reject credential-bearing URLs and require an attribution note. The import previews the selected copy and its hash before creating the canonical baseline, then commits and pushes canonical content plus provenance. A rejected push leaves the verified local commit inspectable for safe retry. Private and local origins never present GitHub stars, owner facts, or pinned revisions.
+
 ## CHANGE SAFELY
 
 ### Review queue

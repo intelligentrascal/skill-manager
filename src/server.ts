@@ -26,6 +26,8 @@ import { renderSnapshot } from "./snapshot.ts";
 import { previewSyncFromRepo, SyncError, syncFromRepo } from "./sync.ts";
 import { startWatcher } from "./watch.ts";
 import { PORT } from "./config.ts";
+import { OriginImportService, type AssignOriginRequest } from "./import.ts";
+import { summarizeOrigin } from "./origin.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -131,6 +133,58 @@ function isSyncRequest(value: unknown): value is {
 				typeof (target as { sha?: unknown }).sha === "string",
 		)
 	);
+}
+
+/** Coerce an /api/origin request body into an AssignOriginRequest (never trusts shape). */
+function coerceAssignRequest(
+	value: unknown,
+	requireSha: boolean,
+): AssignOriginRequest {
+	if (!value || typeof value !== "object") {
+		throw new SyncError("Origin requests need a skill name and an origin object.");
+	}
+	const body = value as Record<string, unknown>;
+	if (typeof body.name !== "string" || !body.name.trim()) {
+		throw new SyncError("Origin requests need a skill name.");
+	}
+	if (!body.origin || typeof body.origin !== "object") {
+		throw new SyncError("Origin requests need an origin object.");
+	}
+	const origin = body.origin as Record<string, unknown>;
+	const request: AssignOriginRequest = {
+		skillName: body.name,
+		...(typeof body.category === "string" && body.category.trim()
+			? { category: body.category }
+			: {}),
+		origin: {
+			type: typeof origin.type === "string" ? origin.type : "",
+			reason: typeof origin.reason === "string" ? origin.reason : "",
+			...(typeof origin.attribution === "string"
+				? { attribution: origin.attribution }
+				: {}),
+			...(typeof origin.ownershipNote === "string"
+				? { ownershipNote: origin.ownershipNote }
+				: {}),
+			...(typeof origin.url === "string" ? { url: origin.url } : {}),
+			...(typeof origin.subpath === "string" ? { subpath: origin.subpath } : {}),
+		},
+		expectedContentSha:
+			typeof body.expectedContentSha === "string"
+				? body.expectedContentSha
+				: "",
+		...(typeof body.pinnedRevision === "string"
+			? { pinnedRevision: body.pinnedRevision }
+			: {}),
+		...(typeof body.sourcePath === "string"
+			? { sourcePath: body.sourcePath }
+			: {}),
+	};
+	if (requireSha && !request.expectedContentSha) {
+		throw new SyncError(
+			"expectedContentSha is required (from the approved preview).",
+		);
+	}
+	return request;
 }
 
 const server = createServer(
@@ -687,6 +741,82 @@ const server = createServer(
 				res.end(
 					JSON.stringify({
 						error: err instanceof Error ? err.message : "update preview failed",
+					}),
+				);
+			}
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/origin") {
+			// Current origin state for a skill, with the honesty contract:
+			// identity (a GitHub fact) is returned only for a github origin.
+			const name = url.searchParams.get("name");
+			if (!name) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing ?name parameter" }));
+				return;
+			}
+			const inv = getInventory();
+			const copies = inv.byName[name] ?? [];
+			const managed = copies.some((c) => c.location === "repo");
+			let manifest;
+			try {
+				manifest = loadRepoManifest();
+			} catch {
+				manifest = null;
+			}
+			const record = manifest?.skills?.[name];
+			const summary = summarizeOrigin(
+				record?.origin,
+				record?.identity,
+				managed,
+			);
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ name, ...summary }));
+			return;
+		}
+
+		if (req.method === "POST" && url.pathname === "/api/origin/preview") {
+			// Read-only: validate the origin and show exactly what an assign would
+			// import (content hash + target). Nothing is written, committed, or pushed.
+			try {
+				const body = await readJsonBody(req);
+				const request = coerceAssignRequest(body, false);
+				const service = new OriginImportService();
+				const preview = await service.preview(repoRoot(), request);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(preview));
+			} catch (error) {
+				res.writeHead(409, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error ? error.message : "Origin preview failed.",
+					}),
+				);
+			}
+			return;
+		}
+
+		if (req.method === "POST" && url.pathname === "/api/origin/assign") {
+			// Perform the approved assignment/import: re-verify the content hash,
+			// write canonical content + provenance, commit, then push. A rejected
+			// push leaves the local commit inspectable and retryable (reported, not
+			// auto-rebased or reset).
+			try {
+				const body = await readJsonBody(req);
+				const request = coerceAssignRequest(body, true);
+				const service = new OriginImportService();
+				const result = await service.assign(repoRoot(), request);
+				invalidateAndRescan();
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(result));
+			} catch (error) {
+				res.writeHead(409, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error ? error.message : "Origin assignment failed.",
 					}),
 				);
 			}

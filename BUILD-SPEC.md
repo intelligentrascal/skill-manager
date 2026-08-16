@@ -185,3 +185,40 @@ Three parallel tracks, divided by agent strength and cross-reviewed:
   fields must be gone; a failure is reported, not automatically rolled back.
 - Performance: batch git status (one call vs 223 spawns) - cold load
   13.9s -> 0.57s.
+
+
+## Canonical origin capture (ticket #2, added 2026-08-16)
+
+Evidence-backed origin assignment for skills without a managed canonical copy,
+plus the import that promotes a discovered copy into `agent-skills` and commits
++ pushes it. This is the backend vertical slice only - the origin-led workspace
+UI is ticket #4 and is deliberately not built here.
+
+- `src/origin.ts` - the pure origin model + validation. Three assignable types
+  (`github` | `private` | `local`) plus an honest `unknown` state.
+  - `parseGithubUrl` accepts only clean https github.com repo URLs and returns
+    owner/repo + a canonical clone URL.
+  - `containsCredentials` rejects userinfo and token/invite query params.
+  - `validateOriginInput` enforces the per-type contract: github validates repo
+    + exact `SKILL.md` subpath (revision is pinned by the import service);
+    private requires an attribution note and rejects credential-bearing URLs;
+    local allows at most an ownership note and never claims an external source.
+  - `reassignOrigin` is append-only: the current origin moves into history.
+  - `summarizeOrigin` is the API honesty boundary: identity (a GitHub fact) is
+    returned only for a github origin; private/local/unknown never fabricate
+    owner/repo/pinned-revision data.
+- `src/import.ts` - `OriginImportService`: preview (read-only, content hash),
+  assign (re-verify approved hash, write canonical content + manifest, verify,
+  commit, push). A rejected push is reported with the commit SHA and left on
+  the branch for inspection/retry - never auto-rebased or reset. A conflicting
+  existing canonical copy is never silently overwritten.
+- `src/manifest.ts` - `origin` field on each skill record (`current` + append-
+  only `history`), a relaxed identity requirement for private origins
+  (explicitly unverified, no pinned revision), and `serializeSkillEntry` /
+  `upsertSkillEntry` / `newManifestWithEntry` for minimal-diff YAML writes.
+- Server: `GET /api/origin?name=` (current state), `POST /api/origin/preview`
+  (read-only), `POST /api/origin/assign` (import + commit + push).
+
+Provenance mapping: github and private both record `provenance: upstream` (a
+verified or community upstream); local records `provenance: mine`. Only a
+verified github origin carries an `identity` (URL + subpath + pinned revision).
