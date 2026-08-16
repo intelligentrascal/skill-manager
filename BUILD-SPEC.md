@@ -185,3 +185,33 @@ Three parallel tracks, divided by agent strength and cross-reviewed:
   fields must be gone; a failure is reported, not automatically rolled back.
 - Performance: batch git status (one call vs 223 spawns) - cold load
   13.9s -> 0.57s.
+
+
+## Agent evidence registry (ticket #3, added 2026-08-16)
+
+Versioned, evidence-backed capability profiles + an approval-gated monthly
+proposal workflow. This is the ticket's vertical slice only - not adaptation
+variants (#5/#6/#7) or the origin-led workspace (#4).
+
+- `src/evidenceRegistry.ts` - schema (schemaVersion 1, registryVersion x.y.z),
+  strict validation, and the seed registry. Each profile records sources
+  (official URL + verbatim excerpt + content hash + observedAt/version),
+  behavior claims (honors/ignores/breaks/requires/silent, each with an evidence
+  level), and adaptation constraints. Pi and Claude are documented; codex and
+  opencode are inferred with no fetchable source (blocked, never guessed).
+- `src/evidenceSchedule.ts` - pure first-Friday-10:00-local math + a re-arming
+  scheduler.
+- `src/evidenceCheck.ts` - the official-source check: fetch fetchable sources,
+  hash-compare, and produce a pending proposal (changed/unchanged/unreachable/
+  no-baseline/blocked). Pure; `fetchFn` is injectable for tests.
+- `src/evidenceStore.ts` - active registry + Attention proposal persistence
+  under `.skillmgr/` in the agent-skills repo (`SM_EVIDENCE_REGISTRY_ROOT`
+  override).
+- `src/evidenceApprove.ts` - the approval gate (the ONLY path that mutates the
+  active registry): re-baselines changed sources, bumps the version, then git
+  commit + push to origin with the source evidence. A failed push leaves the
+  local commit for retry.
+
+Endpoints: `GET /api/evidence-registry`, `POST /api/evidence-registry/check`,
+`POST /api/evidence-registry/approve`. The scheduled and on-demand checks never
+activate a revision - only an explicit approve does (AC3).
