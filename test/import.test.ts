@@ -6,6 +6,7 @@ import {
 	mkdtempSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,6 +39,11 @@ function initBare(remote: string): void {
 
 function tmpRoot(): string {
 	return mkdtempSync(join(tmpdir(), "skill-manager-origin-test-"));
+}
+
+/** Register a temp dir as the only approved scan location for a test. */
+function testScanLocations(root: string) {
+	return [{ name: "test-scan", root }];
 }
 
 const fakeFetcher: GithubFetcher = {
@@ -81,8 +87,8 @@ test("preview for a GitHub origin pins the revision and records a verified ident
 });
 
 test("preview for a local origin reads and hashes the discovered copy", async () => {
-	const service = new OriginImportService(fakeFetcher);
 	const root = tmpRoot();
+	const service = new OriginImportService(fakeFetcher, testScanLocations(root));
 	const source = join(root, "discovered", "SKILL.md");
 	mkdirSync(join(root, "discovered"), { recursive: true });
 	writeFileSync(source, SKILL);
@@ -115,7 +121,7 @@ test("assign imports a local copy, records the origin, commits, and pushes", asy
 	git(repo, ["commit", "--allow-empty", "-m", "base"]);
 	git(repo, ["push", "-u", "origin", "main"]);
 
-	const service = new OriginImportService(fakeFetcher);
+	const service = new OriginImportService(fakeFetcher, testScanLocations(root));
 	try {
 		const preview = await service.preview(repo, {
 			skillName: "demo",
@@ -160,7 +166,7 @@ test("assign refuses when the source changed after preview", async () => {
 	initRepo(repo, remote);
 	git(repo, ["commit", "--allow-empty", "-m", "base"]);
 
-	const service = new OriginImportService(fakeFetcher);
+	const service = new OriginImportService(fakeFetcher, testScanLocations(root));
 	try {
 		const preview = await service.preview(repo, {
 			skillName: "demo",
@@ -197,7 +203,7 @@ test("assign refuses to overwrite a conflicting canonical copy", async () => {
 	git(repo, ["add", "."]);
 	git(repo, ["commit", "-m", "existing"]);
 
-	const service = new OriginImportService(fakeFetcher);
+	const service = new OriginImportService(fakeFetcher, testScanLocations(root));
 	try {
 		const other = join(root, "other", "SKILL.md");
 		mkdirSync(join(root, "other"), { recursive: true });
@@ -243,7 +249,7 @@ test("a rejected push leaves the commit inspectable and retryable", async () => 
 	git(diverger, ["commit", "-m", "diverging"]);
 	git(diverger, ["push", "origin", "main"]);
 
-	const service = new OriginImportService(fakeFetcher);
+	const service = new OriginImportService(fakeFetcher, testScanLocations(root));
 	try {
 		const source = join(root, "discovered", "SKILL.md");
 		mkdirSync(join(root, "discovered"), { recursive: true });
@@ -294,6 +300,162 @@ test("private origins without attribution are rejected before any write", async 
 				}),
 			/attribution/i,
 		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("preview rejects a sensitive non-skill file as sourcePath", async () => {
+	const root = tmpRoot();
+	try {
+		const approved = join(root, "approved");
+		mkdirSync(approved, { recursive: true });
+		const secrets = join(root, "secrets");
+		mkdirSync(secrets, { recursive: true });
+		writeFileSync(
+			join(secrets, "id_rsa"),
+			"-----BEGIN OPENSSH PRIVATE KEY-----\nsecret-material\n",
+		);
+		const service = new OriginImportService(
+			fakeFetcher,
+			[{ name: "approved", root: approved }],
+		);
+		await assert.rejects(
+			() =>
+				service.preview(join(root, "repo"), {
+					skillName: "demo",
+					origin: { type: "local", reason: "r" },
+					expectedContentSha: "",
+					sourcePath: join(secrets, "id_rsa"),
+				}),
+			/SKILL\.md/,
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("preview rejects a SKILL.md outside any approved scan location", async () => {
+	const root = tmpRoot();
+	try {
+		const approved = join(root, "approved");
+		mkdirSync(approved, { recursive: true });
+		const elsewhere = join(root, "elsewhere");
+		mkdirSync(join(elsewhere, "demo"), { recursive: true });
+		writeFileSync(join(elsewhere, "demo", "SKILL.md"), SKILL);
+		const service = new OriginImportService(
+			fakeFetcher,
+			[{ name: "approved", root: approved }],
+		);
+		await assert.rejects(
+			() =>
+				service.preview(join(root, "repo"), {
+					skillName: "demo",
+					origin: { type: "local", reason: "r" },
+					expectedContentSha: "",
+					sourcePath: join(elsewhere, "demo", "SKILL.md"),
+				}),
+			/approved scan location/i,
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("preview rejects a SKILL.md in a skipped directory inside an approved location", async () => {
+	const root = tmpRoot();
+	try {
+		const approved = join(root, "approved");
+		mkdirSync(join(approved, "node_modules", "pkg"), { recursive: true });
+		writeFileSync(join(approved, "node_modules", "pkg", "SKILL.md"), SKILL);
+		const service = new OriginImportService(
+			fakeFetcher,
+			[{ name: "approved", root: approved }],
+		);
+		await assert.rejects(
+			() =>
+				service.preview(join(root, "repo"), {
+					skillName: "demo",
+					origin: { type: "local", reason: "r" },
+					expectedContentSha: "",
+					sourcePath: join(approved, "node_modules", "pkg", "SKILL.md"),
+				}),
+			/discovered/i,
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("preview rejects a symlinked sourcePath that escapes an approved location", async (t) => {
+	const root = tmpRoot();
+	try {
+		const approved = join(root, "approved");
+		mkdirSync(join(approved, "demo"), { recursive: true });
+		const secrets = join(root, "secrets");
+		mkdirSync(secrets, { recursive: true });
+		writeFileSync(join(secrets, "id_rsa"), "PRIVATE KEY MATERIAL\n");
+		const link = join(approved, "demo", "SKILL.md");
+		try {
+			symlinkSync(join(secrets, "id_rsa"), link);
+		} catch {
+			t.skip("symlinks not available on this platform");
+			return;
+		}
+		const service = new OriginImportService(
+			fakeFetcher,
+			[{ name: "approved", root: approved }],
+		);
+		await assert.rejects(
+			() =>
+				service.preview(join(root, "repo"), {
+					skillName: "demo",
+					origin: { type: "local", reason: "r" },
+					expectedContentSha: "",
+					sourcePath: link,
+				}),
+			/approved scan location/i,
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("assign pushes the commit to main even when HEAD is on a feature branch", async () => {
+	const root = tmpRoot();
+	const remote = join(root, "remote.git");
+	const repo = join(root, "repo");
+	const source = join(root, "discovered", "SKILL.md");
+	mkdirSync(join(root, "discovered"), { recursive: true });
+	writeFileSync(source, SKILL);
+	initBare(remote);
+	initRepo(repo, remote);
+	git(repo, ["commit", "--allow-empty", "-m", "base"]);
+	git(repo, ["push", "-u", "origin", "main"]);
+	git(repo, ["checkout", "-b", "feature"]);
+
+	const service = new OriginImportService(fakeFetcher, testScanLocations(root));
+	try {
+		const preview = await service.preview(repo, {
+			skillName: "demo",
+			category: "misc",
+			origin: { type: "local", reason: "r" },
+			expectedContentSha: "",
+			sourcePath: source,
+		});
+		const result = await service.assign(repo, {
+			skillName: "demo",
+			category: "misc",
+			origin: { type: "local", reason: "r" },
+			expectedContentSha: preview.contentSha,
+			sourcePath: source,
+		});
+
+		assert.equal(result.pushed, true);
+		assert.equal(git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]), "feature");
+		// The verified commit landed on origin/main, not a new origin/feature branch.
+		assert.equal(git(remote, ["rev-parse", "main"]), result.commitSha);
+		assert.throws(() => git(remote, ["rev-parse", "feature"]));
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

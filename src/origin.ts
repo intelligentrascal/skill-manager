@@ -74,22 +74,39 @@ export interface OriginValidationResult {
 const GITHUB_OWNER = /^[A-Za-z0-9-]+$/;
 const GITHUB_REPO = /^[A-Za-z0-9_.-]+$/;
 
-/** URL patterns that must never be persisted: userinfo and token/invite params. */
-const CREDENTIAL_PATTERNS: RegExp[] = [
-	/\/\/[^/]*@/, // https://user:token@host - userinfo
-	/[?&#][^?&#]*(?:token|secret|password|credential|key|auth|invite)[^?&#]*=/i,
-	/\/(?:invite|invitations)\/[^/?#]+/i,
-];
+/** Invite links in the path must never be persisted. */
+const INVITE_PATH_PATTERN = /\/(?:invite|invitations)\/[^/?#]+/i;
+
+/**
+ * A credential/token query-parameter name, matched as a whole name component so
+ * `?access_token=` and `?api-key=` are caught but a benign `?monkey=` (or any
+ * name that merely contains "key" as a substring) is not.
+ */
+const CREDENTIAL_PARAM_PATTERN =
+	/(?:^|[_-])(?:token|secret|password|credential|key|auth|invite)(?:$|[_-])/i;
 
 /** True when a URL carries credentials or an invite token and must be rejected. */
 export function containsCredentials(url: string): boolean {
+	let parsed: URL;
 	try {
-		const parsed = new URL(url);
+		parsed = new URL(url);
 		if (parsed.username || parsed.password) return true;
 	} catch {
 		return true; // unparseable URLs are rejected outright
 	}
-	return CREDENTIAL_PATTERNS.some((pattern) => pattern.test(url));
+	if (INVITE_PATH_PATTERN.test(url)) return true;
+	for (const key of parsed.searchParams.keys()) {
+		if (CREDENTIAL_PARAM_PATTERN.test(key)) return true;
+	}
+	// OAuth implicit flows can stash tokens in the URL fragment.
+	const fragment = parsed.hash.replace(/^#/, "");
+	if (fragment) {
+		for (const pair of fragment.split("&")) {
+			const key = (pair.split("=", 1)[0] ?? "").trim();
+			if (key && CREDENTIAL_PARAM_PATTERN.test(key)) return true;
+		}
+	}
+	return false;
 }
 
 /** Parse a public GitHub repository URL into owner, repo, and a clone URL. */

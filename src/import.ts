@@ -12,6 +12,9 @@
 //   verified before the commit is created.
 // - A rejected push never triggers a rebase, reset, or conflict resolution: the
 //   verified local commit stays on the branch, inspectable and retryable.
+// - A client-supplied sourcePath is accepted only when it resolves to a
+//   SKILL.md the scanner actually discovers inside an approved scan location
+//   (never an arbitrary path such as a key file).
 //
 // Honesty: the origin evidence written here comes only from validated inputs
 // (this module never invents GitHub owner/repo/stars). Private and local origins
@@ -25,11 +28,13 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { SCAN_LOCATIONS, type ScanLocation } from "./config.ts";
 import { walkForSkills } from "./scanner.ts";
 import {
 	newManifestWithEntry,
@@ -209,9 +214,14 @@ function readExistingManifest(repoRoot: string): {
 
 export class OriginImportService {
 	private readonly fetcher: GithubFetcher;
+	private readonly scanLocations: ScanLocation[];
 
-	constructor(fetcher: GithubFetcher = new GitGithubFetcher()) {
+	constructor(
+		fetcher: GithubFetcher = new GitGithubFetcher(),
+		scanLocations: ScanLocation[] = SCAN_LOCATIONS,
+	) {
 		this.fetcher = fetcher;
+		this.scanLocations = scanLocations;
 	}
 
 	/** Read-only preview: nothing is written, no commit or push occurs. */
@@ -417,7 +427,10 @@ export class OriginImportService {
 		skillName: string,
 		repoRoot: string,
 	): ResolvedContent {
-		const path = request.sourcePath ?? findRepoSkillPath(repoRoot, skillName);
+		const path =
+			request.sourcePath !== undefined && request.sourcePath.trim() !== ""
+				? this.resolveDiscoveredSource(request.sourcePath)
+				: findRepoSkillPath(repoRoot, skillName);
 		if (!path) {
 			throw new ImportError(
 				`No content source for '${skillName}'. Provide a sourcePath (discovered copy) or a public GitHub origin.`,
@@ -430,6 +443,70 @@ export class OriginImportService {
 			sha: sha(buffer),
 			bytes: buffer.length,
 		};
+	}
+
+	/**
+	 * A client-supplied sourcePath is accepted ONLY when it resolves to a
+	 * SKILL.md the scanner actually discovers inside an approved scan location.
+	 * This closes the arbitrary-file-read/exfiltration path: a sourcePath such
+	 * as ~/.ssh/id_rsa (or any non-SKILL.md, out-of-location, or symlinked
+	 * escape) is rejected before a single byte is read.
+	 */
+	private resolveDiscoveredSource(sourcePath: string): string {
+		const absolute = resolve(sourcePath.trim());
+		if (basename(absolute) !== "SKILL.md") {
+			throw new ImportError("sourcePath must point at a SKILL.md file");
+		}
+		let real: string;
+		try {
+			real = realpathSync(absolute);
+		} catch {
+			throw new ImportError(
+				`sourcePath does not resolve to an existing file: ${sourcePath}`,
+			);
+		}
+		// Reject symlinks that escape an approved location before trusting the path.
+		if (!this.isInsideApprovedLocation(real)) {
+			throw new ImportError(
+				"sourcePath must be inside an approved scan location",
+			);
+		}
+		if (!this.discoveredCopies().has(real)) {
+			throw new ImportError(
+				"sourcePath must be a discovered SKILL.md copy, not an arbitrary file",
+			);
+		}
+		return real;
+	}
+
+	private isInsideApprovedLocation(real: string): boolean {
+		for (const loc of this.scanLocations) {
+			try {
+				const rootReal = realpathSync(loc.root);
+				const rel = relative(rootReal, real);
+				if (rel !== "" && !rel.startsWith("..") && !isAbsolute(rel)) {
+					return true;
+				}
+			} catch {
+				// root does not exist, so it cannot contain the candidate
+			}
+		}
+		return false;
+	}
+
+	/** Real paths of every SKILL.md the scanner discovers across approved locations. */
+	private discoveredCopies(): Set<string> {
+		const found = new Set<string>();
+		for (const loc of this.scanLocations) {
+			for (const file of walkForSkills(loc.root, loc.nested ?? false)) {
+				try {
+					found.add(realpathSync(file.path));
+				} catch {
+					// unreadable or vanished mid-scan - never a valid source
+				}
+			}
+		}
+		return found;
 	}
 
 	private async commit(
@@ -464,7 +541,16 @@ export class OriginImportService {
 		repoRoot: string,
 	): Promise<{ pushed: boolean; error?: string }> {
 		try {
-			await execFile("git", ["-C", repoRoot, "push", "origin", "HEAD"]);
+			// Push the verified commit explicitly to agent-skills/main, never the
+			// ambiguous same-named branch that a bare "HEAD" implies on a
+			// detached HEAD or a non-main branch.
+			await execFile("git", [
+				"-C",
+				repoRoot,
+				"push",
+				"origin",
+				"HEAD:main",
+			]);
 			return { pushed: true };
 		} catch (error) {
 			return {
