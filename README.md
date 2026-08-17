@@ -63,9 +63,9 @@ See what Pi, Claude, Codex, and OpenCode actually do with a skill's frontmatter.
 
 ### Explain
 
-Ask the useful question directly: why does agent X see skill Y? Per-agent answers resolve the discovery path, measure integrity against the repo copy, and give the honest negative case - with confidence stated where precedence is not documented.
+Ask the useful question directly: why does agent X see skill Y? Per-agent answers resolve the discovery path, measure integrity against the repo copy, and give the honest negative case - with confidence stated where precedence is not documented. Explain is a section of the skill workspace.
 
-![Explain tray](docs/screenshots/explain-tray.png)
+![Explain](docs/screenshots/explain-tray.png)
 
 ### Provenance
 
@@ -76,6 +76,8 @@ Every skill knows where it came from. A committed `skillmgr.yaml` records proven
 A skill without a managed canonical copy can be assigned one of three honest origins - verified public GitHub, private/community, or mine/local - with the origin evidence and an append-only history recorded in `skillmgr.yaml`. Public GitHub origins validate the repository and exact `SKILL.md` subpath, then pin a revision; private origins reject credential-bearing URLs and require an attribution note. The import previews the selected copy and its hash before creating the canonical baseline, then commits and pushes canonical content plus provenance. A rejected push leaves the verified local commit inspectable for safe retry. Private and local origins never present GitHub stars, owner facts, or pinned revisions.
 
 Selecting a skill opens an origin-led evidence workspace instead of a drawer. Public GitHub facts are served from a local cache and refresh only when the user chooses **Refresh GitHub facts**; opening a skill never polls GitHub. The variant column always shows Pi, Claude, OpenCode, and Codex with an honest Canonical, Variant stored, Deployed, Verified, or Unknown state. Registered snapshots include their canonical diff, base revision, and active agent-profile evidence; missing records stay Unknown rather than being treated as failed adaptations. Tablet and mobile use a stacked full-screen workspace with persistent Back navigation.
+
+![Skill workspace](docs/screenshots/specimen-tray.png)
 
 ## CHANGE SAFELY
 
@@ -89,8 +91,6 @@ Drifted skills and uncommitted repo copies surface in a focused queue. Inspect t
 
 Sync flows are previewed before confirmation. You see the exact source and target copies, then choose which targets to overwrite. A target is written only after its current hash still matches the preview.
 
-![Specimen tray](docs/screenshots/specimen-tray.png)
-
 ### Manifest-pinned upstream updates
 
 A skill that declares a pinned upstream identity in `skillmgr.yaml` (URL, subpath, and revision) can be previewed at that revision. The preview is read-only and mirror-gated: it reports whether the baseline is the repo mirror and marks apply as available only when it is. Apply and rollback exist in the update service but are not yet exposed in the dashboard - only the preview is surfaced today. When executable behavior changes, the service requires a typed acknowledgement.
@@ -102,6 +102,8 @@ A claude-only skill becomes usable on pi, opencode, or codex as a linked variant
 ### Agent variant matrix
 
 Every skill in the workspace shows Pi, Claude, OpenCode, and Codex in a fixed order with an honest Canonical, Variant stored, Deployed, Verified, or Unknown state. A real registered variant exposes a readable canonical diff, its canonical base revision, the active agent-profile revision, and the evidence level backing it. Absent sidecars and missing snapshots stay Unknown - never a failure or an invented adaptation. Manual variant editing is not a normal flow: the workspace points to the AI-assisted Adaptation Review as the supported path.
+
+![Variant matrix](docs/screenshots/variant-matrix.png)
 
 ### AI-assisted Adaptation Reviews
 
