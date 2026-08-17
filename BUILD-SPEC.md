@@ -197,9 +197,12 @@ UI is ticket #4 and is deliberately not built here.
     owner/repo + a canonical clone URL.
   - `containsCredentials` rejects userinfo and token/invite query params.
   - `validateOriginInput` enforces the per-type contract: github validates repo
-    - exact `SKILL.md` subpath (revision is pinned by the import service);
-    private requires an attribution note and rejects credential-bearing URLs;
-    local allows at most an ownership note and never claims an external source.
+    + exact `SKILL.md` subpath (revision is pinned by the import service) and
+    treats `reason` as OPTIONAL (the verified URL is the evidence); private
+    requires an attribution note + a reason and rejects credential-bearing
+    URLs; local allows at most an ownership note, never claims an external
+    source, and still requires a reason. A provided reason must be a single
+    line for every type.
   - `reassignOrigin` is append-only: the current origin moves into history.
   - `summarizeOrigin` is the API honesty boundary: identity (a GitHub fact) is
     returned only for a github origin; private/local/unknown never fabricate
@@ -208,13 +211,24 @@ UI is ticket #4 and is deliberately not built here.
   assign (re-verify approved hash, write canonical content + manifest, verify,
   commit, push). A rejected push is reported with the commit SHA and left on
   the branch for inspection/retry - never auto-rebased or reset. A conflicting
-  existing canonical copy is never silently overwritten.
+  existing canonical copy is never silently overwritten. A verified github
+  assignment reads the imported `SKILL.md` frontmatter `name` (falling back to
+  the repo name) and records it as `canonicalName`; the manifest record KEY is
+  never renamed, so cross-references and provenance history stay intact.
 - `src/manifest.ts` - `origin` field on each skill record (`current` + append-
-  only `history`), a relaxed identity requirement for private origins
-  (explicitly unverified, no pinned revision), and `serializeSkillEntry` /
+  only `history`), a `canonicalName` attribute carrying the verified github
+  skill name, a relaxed identity requirement for private origins (explicitly
+  unverified, no pinned revision), and `serializeSkillEntry` /
   `upsertSkillEntry` / `newManifestWithEntry` for minimal-diff YAML writes.
+  `upsertSkillEntry` preserves the manifest's existing line-ending style
+  (CRLF or LF), so a single assignment changes only its own entry instead of
+  rewriting every line of the file.
 - Server: `GET /api/origin?name=` (current state), `POST /api/origin/preview`
   (read-only), `POST /api/origin/assign` (import + commit + push).
+- Dashboard: the origin-assignment dialog pre-fills the github `Skill subpath`
+  from the skill's known location (editable) and offers an explicit
+  `Auto-assign path` action; the assignment `reason` is optional for verified
+  github origins. The preview names the verified skill name before confirm.
 
 Provenance mapping: github and private both record `provenance: upstream` (a
 verified or community upstream); local records `provenance: mine`. Only a

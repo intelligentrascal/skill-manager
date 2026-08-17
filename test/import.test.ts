@@ -17,6 +17,7 @@ import {
 	OriginImportService,
 	type GithubFetcher,
 } from "../src/import.ts";
+import { parseManifest } from "../src/manifest.ts";
 
 const SKILL = `---\nname: demo\ndescription: A demo skill.\n---\n\n## Workflow\nDo the thing.\n`;
 
@@ -456,6 +457,227 @@ test("assign pushes the commit to main even when HEAD is on a feature branch", a
 		// The verified commit landed on origin/main, not a new origin/feature branch.
 		assert.equal(git(remote, ["rev-parse", "main"]), result.commitSha);
 		assert.throws(() => git(remote, ["rev-parse", "feature"]));
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+const namedFetcher = (skillBody: string): GithubFetcher => ({
+	async pinRevision(_cloneUrl: string): Promise<string> {
+		return "pinned-rev-1";
+	},
+	async fetchSkill(
+		_cloneUrl: string,
+		_revision: string,
+		_subpath: string,
+	): Promise<string> {
+		return skillBody;
+	},
+});
+
+const LAVISH_SKILL = `---\nname: lavish\ndescription: rich HTML artifacts\n---\n\n## Workflow\nRender it.\n`;
+
+function scaffoldRepo(root: string, remote: string, repo: string): void {
+	initBare(remote);
+	initRepo(repo, remote);
+	git(repo, ["commit", "--allow-empty", "-m", "base"]);
+	git(repo, ["push", "-u", "origin", "main"]);
+}
+
+function writeExistingManifest(repo: string, text: string): void {
+	writeFileSync(join(repo, "skillmgr.yaml"), text);
+	git(repo, ["add", "--", "skillmgr.yaml"]);
+	git(repo, ["commit", "-m", "existing manifest"]);
+}
+
+test("a reasonless verified github assignment records the frontmatter name as canonicalName", async () => {
+	const root = tmpRoot();
+	const repo = join(root, "repo");
+	const remote = join(root, "remote.git");
+	scaffoldRepo(root, remote, repo);
+	const service = new OriginImportService(namedFetcher(LAVISH_SKILL));
+	try {
+		const origin = {
+			type: "github",
+			url: "https://github.com/kunchenguid/lavish-axi.git",
+			subpath: "skills/lavish",
+		};
+		const preview = await service.preview(repo, {
+			skillName: "Curet1fa",
+			category: "misc",
+			origin,
+			expectedContentSha: "",
+		});
+		assert.equal(preview.content, LAVISH_SKILL);
+		assert.equal(preview.canonicalName, "lavish");
+
+		const result = await service.assign(repo, {
+			skillName: "Curet1fa",
+			category: "misc",
+			origin,
+			expectedContentSha: preview.contentSha,
+		});
+		assert.equal(result.committed, true);
+		assert.equal(result.pushed, true);
+
+		const manifestText = readFileSync(join(repo, "skillmgr.yaml"), "utf8");
+		const parsed = parseManifest(manifestText);
+		const record = parsed.skills["Curet1fa"];
+		// The record key is the pre-existing local name - never renamed.
+		assert.ok(record);
+		assert.equal(record.canonicalName, "lavish");
+		assert.equal(record.provenance, "upstream");
+		assert.equal(record.origin!.current.type, "github");
+		assert.equal(record.origin!.current.reason, undefined);
+		assert.equal(record.identity!.upstreamUrl, "https://github.com/kunchenguid/lavish-axi.git");
+		// The manifest round-trips with the verified name intact.
+		assert.equal(
+			parseManifest(
+				readFileSync(join(repo, "skillmgr.yaml"), "utf8"),
+			).skills["Curet1fa"].canonicalName,
+			"lavish",
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("a frontmatter-less github import derives the verified name from the repo", async () => {
+	const root = tmpRoot();
+	const repo = join(root, "repo");
+	const remote = join(root, "remote.git");
+	scaffoldRepo(root, remote, repo);
+	const service = new OriginImportService(
+		namedFetcher("---\ndescription: no name declared\n---\n\nBody.\n"),
+	);
+	try {
+		const preview = await service.preview(repo, {
+			skillName: "Curet1fa",
+			origin: {
+				type: "github",
+				url: "https://github.com/kunchenguid/lavish-axi.git",
+				subpath: "skills/lavish",
+			},
+			expectedContentSha: "",
+		});
+		assert.equal(preview.canonicalName, "lavish-axi");
+		const result = await service.assign(repo, {
+			skillName: "Curet1fa",
+			origin: {
+				type: "github",
+				url: "https://github.com/kunchenguid/lavish-axi.git",
+				subpath: "skills/lavish",
+			},
+			expectedContentSha: preview.contentSha,
+		});
+		assert.equal(result.committed, true);
+		const record = parseManifest(
+			readFileSync(join(repo, "skillmgr.yaml"), "utf8"),
+		).skills["Curet1fa"];
+		assert.equal(record.canonicalName, "lavish-axi");
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("github reassignment keeps the key stable and preserves prior origin history", async () => {
+	const root = tmpRoot();
+	const repo = join(root, "repo");
+	const remote = join(root, "remote.git");
+	const source = join(root, "discovered", "SKILL.md");
+	mkdirSync(join(root, "discovered"), { recursive: true });
+	writeFileSync(source, LAVISH_SKILL);
+	scaffoldRepo(root, remote, repo);
+	// A prior local origin exists in the manifest under the same key.
+	writeExistingManifest(
+		repo,
+		`version: 1\nskills:\n  Curet1fa:\n    provenance: mine\n    origin:\n      current:\n        type: local\n        at: 2026-08-16T00:00:00.000Z\n        reason: written locally\n        ownershipNote: scratch\n`,
+	);
+	const service = new OriginImportService(
+		namedFetcher(LAVISH_SKILL),
+		testScanLocations(root),
+	);
+	try {
+		const preview = await service.preview(repo, {
+			skillName: "Curet1fa",
+			category: "misc",
+			origin: {
+				type: "github",
+				url: "https://github.com/kunchenguid/lavish-axi.git",
+				subpath: "skills/lavish",
+			},
+			expectedContentSha: "",
+			sourcePath: source,
+		});
+		const result = await service.assign(repo, {
+			skillName: "Curet1fa",
+			category: "misc",
+			origin: {
+				type: "github",
+				url: "https://github.com/kunchenguid/lavish-axi.git",
+				subpath: "skills/lavish",
+			},
+			expectedContentSha: preview.contentSha,
+			sourcePath: source,
+		});
+		assert.equal(result.committed, true);
+
+		const parsed = parseManifest(
+			readFileSync(join(repo, "skillmgr.yaml"), "utf8"),
+		);
+		const record = parsed.skills["Curet1fa"];
+		assert.equal(record.canonicalName, "lavish");
+		assert.equal(record.origin!.current.type, "github");
+		// Append-only: the prior local origin is preserved in history.
+		assert.equal(record.origin!.history.length, 1);
+		assert.equal(record.origin!.history[0].type, "local");
+		assert.equal(record.origin!.history[0].reason, "written locally");
+		assert.equal(record.origin!.history[0].ownershipNote, "scratch");
+		// The manifest key never changes - the prior name is preserved.
+		assert.equal(Object.keys(parsed.skills).includes("Curet1fa"), true);
+		assert.equal(parsed.skills["Curet1fa"].canonicalName, "lavish");
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("assigning to a CRLF manifest keeps the diff minimal", async () => {
+	const root = tmpRoot();
+	const repo = join(root, "repo");
+	const remote = join(root, "remote.git");
+	scaffoldRepo(root, remote, repo);
+	const crlfManifest =
+		"# header\r\nversion: 1\r\nskills:\r\n  keeper:\r\n    provenance: mine\r\n";
+	writeExistingManifest(repo, crlfManifest);
+	const service = new OriginImportService(namedFetcher(LAVISH_SKILL));
+	try {
+		const preview = await service.preview(repo, {
+			skillName: "Curet1fa",
+			category: "misc",
+			origin: {
+				type: "github",
+				url: "https://github.com/kunchenguid/lavish-axi.git",
+				subpath: "skills/lavish",
+			},
+			expectedContentSha: "",
+		});
+		await service.assign(repo, {
+			skillName: "Curet1fa",
+			category: "misc",
+			origin: {
+				type: "github",
+				url: "https://github.com/kunchenguid/lavish-axi.git",
+				subpath: "skills/lavish",
+			},
+			expectedContentSha: preview.contentSha,
+		});
+		const written = readFileSync(join(repo, "skillmgr.yaml"), "utf8");
+		// The keeper entry keeps CRLF untouched; only the new entry is added.
+		assert.ok(written.startsWith("# header\r\nversion: 1\r\nskills:\r\n  keeper:\r\n    provenance: mine\r\n"));
+		const withoutCrlf = written.split("\r\n").join("");
+		assert.ok(!withoutCrlf.includes("\n"), "manifest must stay CRLF after assign");
+		assert.equal(parseManifest(written).skills["keeper"].provenance, "mine");
+		assert.equal(parseManifest(written).skills["Curet1fa"].canonicalName, "lavish");
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

@@ -1326,6 +1326,28 @@
       }
       .assignment-form textarea { min-height: 74px; resize: vertical; }
       .assignment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .assignment-path-row { display: flex; align-items: end; gap: 8px; }
+      .assignment-path-row label { flex: 1; min-width: 0; }
+      .assignment-path-row button {
+        padding: 9px 10px;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--ink-muted);
+        cursor: pointer;
+        font: 700 9px/1 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .assignment-path-row button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .assignment-path-row button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
       .assignment-preview {
         margin: 0 16px 16px;
         padding: 13px;
@@ -2967,6 +2989,26 @@
         return (text || "?").slice(0, 2).toUpperCase();
       }
 
+      function knownSkillSubpath(skillData) {
+        const copies = (skillData && skillData.copies) || [];
+        const repoCopy = copies.find(function (copy) { return copy.location === "repo"; });
+        const source = repoCopy || copies[0];
+        if (!source || !source.path) return "";
+        const normalized = String(source.path).replace(/\\/g, "/");
+        const marker = "/skills/";
+        const idx = normalized.lastIndexOf(marker);
+        if (idx !== -1) {
+          const rel = normalized
+            .slice(idx + marker.length)
+            .replace(/\/SKILL\.md$/i, "")
+            .split("/")
+            .filter(Boolean);
+          if (rel.length) return "skills/" + rel.join("/");
+        }
+        const dir = normalized.replace(/\/SKILL\.md$/i, "").split("/").pop();
+        return dir ? "skills/" + dir : "";
+      }
+
       function renderOriginHero(name, origin, skillData) {
         const hero = document.getElementById("originHero");
         const assignment = document.getElementById("originAssignment");
@@ -3162,8 +3204,7 @@
         }
         form.appendChild(formField("Origin type", type));
         const reason = document.createElement("textarea");
-        reason.required = true;
-        reason.placeholder = "Why is this the canonical origin?";
+        reason.placeholder = "Optional for verified GitHub; required for private and local origins";
         form.appendChild(formField("Assignment reason", reason));
         const specific = el("div", "assignment-grid");
         form.appendChild(specific);
@@ -3191,9 +3232,21 @@
             url.required = true;
             url.placeholder = "https://github.com/owner/repository";
             const subpath = document.createElement("input");
-            subpath.required = true;
             subpath.placeholder = "skills/example";
-            specific.append(formField("Repository URL", url), formField("Skill subpath", subpath));
+            subpath.value = knownSkillSubpath(skillData);
+            const pathLabel = formField("Skill subpath", subpath);
+            pathLabel.title = "Prefilled from the skill's known location; edit if the upstream path differs.";
+            const autoPath = el("button", "", "Auto-assign path");
+            autoPath.type = "button";
+            autoPath.addEventListener("click", () => {
+              const known = knownSkillSubpath(skillData);
+              subpath.value = known;
+              subpath.focus();
+              if (!known) showToast("No known location found for this skill");
+            });
+            const pathRow = el("div", "assignment-path-row");
+            pathRow.append(pathLabel, autoPath);
+            specific.append(formField("Repository URL", url), pathRow);
             fields = { url, subpath };
             return;
           }
@@ -3232,7 +3285,9 @@
           const request = { name, origin };
           if (type.value === "github") {
             origin.url = fields.url.value.trim();
-            origin.subpath = fields.subpath.value.trim();
+            // A cleared subpath falls back to the skill's known location, so the
+            // user is never forced to invent an upstream path by hand.
+            origin.subpath = (fields.subpath.value.trim() || knownSkillSubpath(skillData)).trim();
           } else {
             const sourceCopy = skillData.copies[Number(fields.source.value)];
             if (sourceCopy) request.sourcePath = sourceCopy.path;
@@ -3269,6 +3324,11 @@
         const review = el("div", "assignment-preview");
         review.appendChild(el("strong", "", "Verified import preview"));
         review.appendChild(el("p", "", "Canonical target: " + preview.repoRelativePath));
+        if (preview.canonicalName) {
+          review.appendChild(
+            el("p", "", "Verified skill name: " + preview.canonicalName + " (record key stays " + name + ")"),
+          );
+        }
         review.appendChild(el("p", "", "Content bytes: " + preview.contentBytes));
         const hash = el("p", "", "Content hash: ");
         hash.appendChild(el("code", "", preview.contentSha));
@@ -3331,7 +3391,7 @@
           item.appendChild(
             el("strong", "", (index === 0 ? "Current · " : "Prior · ") + entry.type),
           );
-          item.appendChild(el("small", "", formatTimestamp(entry.at) + " · " + entry.reason));
+          item.appendChild(el("small", "", formatTimestamp(entry.at) + " · " + (entry.reason || "No reason recorded")));
           if (entry.attribution) item.appendChild(el("small", "", "Attribution: " + entry.attribution));
           history.body.appendChild(item);
         });

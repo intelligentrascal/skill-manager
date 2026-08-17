@@ -120,3 +120,81 @@ test("inline dashboard script compiles without syntax errors", () => {
 		);
 	}
 });
+
+/** Extract a top-level function body by name from the inline dashboard script. */
+function extractFunction(source: string, name: string): string {
+	const marker = `function ${name}(`;
+	const start = source.indexOf(marker);
+	assert.notEqual(start, -1, `missing function ${name}`);
+	let depth = 0;
+	let i = start;
+	for (; i < source.length; i++) {
+		if (source[i] === "{") depth++;
+		else if (source[i] === "}") {
+			depth--;
+			if (depth === 0) {
+				i++;
+				break;
+			}
+		}
+	}
+	return source.slice(start, i);
+}
+
+test("origin assignment dialog prefills subpath from the skill's known location and needs no hand-typed path", () => {
+	// The reason field is no longer required for any origin type at the form
+	// level; enforcement is type-dependent on the server.
+	assert.doesNotMatch(html, /reason\.required\s*=\s*true/);
+	// The github branch builds a subpath from the known location and offers an
+	// explicit auto-assign action.
+	assert.ok(html.includes("Auto-assign path"), "missing explicit auto-assign skill-path action");
+	assert.ok(html.includes("knownSkillSubpath(skillData)"), "missing known-location subpath wiring");
+	assert.ok(
+		/knownSkillSubpath\(skillData\)/.test(html),
+		"subpath defaults are derived from the skill's known location",
+	);
+	// The submit path falls back to the known location, so submitting without a
+	// hand-typed path is possible.
+	assert.ok(html.includes("knownSkillSubpath(skillData)"), "submit falls back to the known location");
+});
+
+test("knownSkillSubpath derives the repo subpath and falls back to the directory name", () => {
+	const fn = new Function("return (" + extractFunction(html, "knownSkillSubpath") + ")")();
+	// Repo copy path wins: skills/<category>/<name> under the repo's skills root.
+	assert.equal(
+		fn({
+			copies: [
+				{ location: "pi", path: "C:/Users/x/.pi/agent/skills/Curet1fa/SKILL.md" },
+				{ location: "repo", path: "D:/agent-skills/skills/misc/Curet1fa/SKILL.md" },
+			],
+		}),
+		"skills/misc/Curet1fa",
+	);
+	// Windows-style backslashes normalize the same way.
+	assert.equal(
+		fn({ copies: [{ location: "repo", path: "D:\\agent-skills\\skills\\core\\demo\\SKILL.md" }] }),
+		"skills/core/demo",
+	);
+	// Without a repo copy, the directory name of the first discovered copy is used.
+	assert.equal(
+		fn({ copies: [{ location: "pi", path: "/home/x/.pi/agent/skills/DemoSkill/SKILL.md" }] }),
+		"skills/DemoSkill",
+	);
+	assert.equal(fn({ copies: [] }), "");
+	assert.equal(fn(null), "");
+});
+
+test("assignment preview surfaces the verified skill name before confirm", () => {
+	assert.ok(
+		html.includes("Verified skill name"),
+		"the preview names the verified skill name before the user confirms",
+	);
+	assert.ok(
+		html.includes("record key stays"),
+		"the preview states that the manifest key is not renamed",
+	);
+});
+
+test("origin history tolerates assignments recorded without a reason", () => {
+	assert.match(html, /\(entry\.reason \|\| [^)]+\)/);
+});

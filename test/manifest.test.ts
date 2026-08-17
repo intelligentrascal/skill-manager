@@ -217,3 +217,117 @@ test("serializeSkillEntry emits a valid version-1 block", () => {
 	assert.ok(block.startsWith("  demo:"));
 	assert.ok(block.includes("    provenance: mine"));
 });
+
+test("canonicalName round-trips through serialize and parse", () => {
+	const record = {
+		provenance: "upstream" as const,
+		canonicalName: "lavish",
+		identity: {
+			upstreamUrl: "https://github.com/kunchenguid/lavish-axi.git",
+			subpath: "skills/lavish",
+			pinnedRevision: "303de23c72ae65e2e994dbc1935b7643125af533",
+		},
+		origin: {
+			current: {
+				type: "github" as const,
+				at: "2026-08-17T10:44:19.676Z",
+				verifiedAt: "2026-08-17T10:44:19.676Z",
+			},
+			history: [],
+		},
+	};
+	const text = newManifestWithEntry("Curet1fa", record);
+	const parsed = parseManifest(text);
+	assert.equal(parsed.skills["Curet1fa"].canonicalName, "lavish");
+	assert.equal(parsed.skills["Curet1fa"].origin!.current.type, "github");
+	// Serializing the parsed record again keeps the verified name.
+	const block = serializeSkillEntry("Curet1fa", parsed.skills["Curet1fa"]);
+	assert.ok(block.includes("    canonicalName: lavish"));
+});
+
+test("an origin assignment may omit reason and the omission round-trips", () => {
+	// Recon shape: a verified github assignment with no assignment reason.
+	const text = `version: 1
+skills:
+  Curet1fa:
+    provenance: upstream
+    canonicalName: lavish
+    identity:
+      upstreamUrl: https://github.com/kunchenguid/lavish-axi.git
+      subpath: skills/lavish
+      pinnedRevision: 303de23c72ae65e2e994dbc1935b7643125af533
+    origin:
+      current:
+        type: github
+        at: 2026-08-17T10:44:19.676Z
+        verifiedAt: 2026-08-17T10:44:19.676Z
+`;
+	const parsed = parseManifest(text);
+	assert.equal(parsed.skills["Curet1fa"].origin!.current.reason, undefined);
+	assert.equal(parsed.skills["Curet1fa"].origin!.current.type, "github");
+	const entry = serializeSkillEntry("Curet1fa", parsed.skills["Curet1fa"]);
+	assert.doesNotMatch(entry, /reason:/);
+	const roundTripped = parseManifest(
+		newManifestWithEntry("Curet1fa", parsed.skills["Curet1fa"]),
+	);
+	assert.equal(
+		roundTripped.skills["Curet1fa"].origin!.current.reason,
+		undefined,
+	);
+});
+
+test("upsertSkillEntry preserves CRLF line endings for a minimal diff", () => {
+	const original =
+		"# header\r\nversion: 1\r\nskills:\r\n  alpha:\r\n    provenance: mine\r\n";
+	const record = {
+		provenance: "mine" as const,
+		origin: {
+			current: {
+				type: "local" as const,
+				at: "2026-08-16T15:43:00.000Z",
+				reason: "I wrote this",
+			},
+			history: [],
+		},
+	};
+	// Appending a new entry is a pure append: the existing bytes are untouched
+	// and the inserted block carries the same CRLF style as the file.
+	const appended = upsertSkillEntry(original, "beta", record);
+	assert.equal(appended, original + "  beta:\r\n    provenance: mine\r\n    origin:\r\n      current:\r\n        type: local\r\n        at: 2026-08-16T15:43:00.000Z\r\n        reason: I wrote this\r\n");
+
+	// Replacing an entry restores every surrounding line with CRLF - no
+	// wholesale LF conversion that would rewrite the whole file.
+	const replaced = upsertSkillEntry(original, "alpha", record);
+	assert.match(replaced, /^# header\r\nversion: 1\r\nskills:\r\n  alpha:\r\n    provenance: mine\r\n    origin:\r\n      current:\r\n        type: local\r\n        at: 2026-08-16T15:43:00.000Z\r\n        reason: I wrote this\r\n$/);
+	const withoutCrlf = replaced.split("\r\n").join("");
+	assert.ok(
+		!withoutCrlf.includes("\n"),
+		"every line of a CRLF manifest stays CRLF after an upsert",
+	);
+
+	// The result still parses.
+	assert.equal(parseManifest(replaced).skills["alpha"].origin!.current.type, "local");
+});
+
+test("upsertSkillEntry leaves an LF manifest on LF", () => {
+	const original =
+		"# header\nversion: 1\nskills:\n  alpha:\n    provenance: mine\n";
+	const record = {
+		provenance: "mine" as const,
+		origin: {
+			current: {
+				type: "local" as const,
+				at: "2026-08-16T15:43:00.000Z",
+				reason: "I wrote this",
+			},
+			history: [],
+		},
+	};
+	const appended = upsertSkillEntry(original, "beta", record);
+	assert.equal(appended.includes("\r"), false, "LF manifest must not gain CRLF lines");
+	assert.equal(parseManifest(appended).skills["beta"].origin!.current.type, "local");
+
+	const replaced = upsertSkillEntry(original, "alpha", record);
+	assert.equal(replaced.includes("\r"), false, "LF manifest must not gain CRLF lines");
+	assert.equal(parseManifest(replaced).skills["alpha"].origin!.current.type, "local");
+});

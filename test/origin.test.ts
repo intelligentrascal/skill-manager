@@ -208,6 +208,62 @@ test("missing reason or type is rejected", () => {
 	assert.equal(validateOriginInput({ type: "local", reason: "x" }, "not-a-date").ok, false);
 });
 
+test("verified github origins do not require a reason; a provided reason is still accepted", () => {
+	const without = validateOriginInput(
+		{
+			type: "github",
+			url: "https://github.com/acme/skills.git",
+			subpath: "skills/demo",
+		},
+		NOW,
+	);
+	assert.equal(without.ok, true);
+	assert.ok(without.assignment);
+	assert.equal(without.assignment.reason, undefined);
+	assert.ok(without.github);
+	assert.equal(without.github!.ref.owner, "acme");
+	assert.equal(without.github!.subpath, "skills/demo");
+
+	const withReason = validateOriginInput(
+		{
+			type: "github",
+			reason: "the verified upstream home of this skill",
+			url: "https://github.com/acme/skills.git",
+			subpath: "skills/demo",
+		},
+		NOW,
+	);
+	assert.equal(withReason.ok, true);
+	assert.equal(withReason.assignment!.reason, "the verified upstream home of this skill");
+});
+
+test("private and local origins still require a single-line reason", () => {
+	const privateWithout = validateOriginInput(
+		{ type: "private", attribution: "community thread" },
+		NOW,
+	);
+	assert.equal(privateWithout.ok, false);
+	assert.ok(privateWithout.errors.some((e) => /reason/.test(e)));
+
+	const localWithout = validateOriginInput({ type: "local" }, NOW);
+	assert.equal(localWithout.ok, false);
+	assert.ok(localWithout.errors.some((e) => /reason/.test(e)));
+
+	// The single-line constraint still applies to any provided reason, even on
+	// github where the reason is optional.
+	const multiLine = validateOriginInput(
+		{
+			type: "github",
+			reason: "line one\nline two",
+			url: "https://github.com/a/b.git",
+			subpath: "s",
+		},
+		NOW,
+	);
+	assert.equal(multiLine.ok, false);
+	assert.ok(multiLine.errors.some((e) => /single line/.test(e)));
+});
+
 test("summarizeOrigin never fabricates GitHub facts for private/local/unknown", () => {
 	const identity = {
 		upstreamUrl: "https://github.com/acme/skills.git",
