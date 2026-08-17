@@ -4,7 +4,7 @@
 >
 > Skill Manager shows which skills each agent can discover, whether installed copies agree, why a runtime sees a skill, and which changes are safe to make. It is a local evidence instrument for operators running skills across Pi, OpenCode, Claude, and a shared repository.
 
-![Genome Wall](docs/screenshots/genome-wall.png)
+![Skill Manager dashboard](docs/screenshots/dashboard.png)
 
 A skill is a five-location genome: `pi` · `opencode` · `claude` · `shared` · `repo`. When its copies agree, the strip is continuous. When they disagree, it breaks in coral.
 
@@ -77,7 +77,9 @@ A skill without a managed canonical copy can be assigned one of three honest ori
 
 Selecting a skill opens an origin-led evidence workspace instead of a drawer. Public GitHub facts are served from a local cache and refresh only when the user chooses **Refresh GitHub facts**; opening a skill never polls GitHub. The variant column always shows Pi, Claude, OpenCode, and Codex with an honest Canonical, Variant stored, Deployed, Verified, or Unknown state. Registered snapshots include their canonical diff, base revision, and active agent-profile evidence; missing records stay Unknown rather than being treated as failed adaptations. Tablet and mobile use a stacked full-screen workspace with persistent Back navigation.
 
-![Skill workspace](docs/screenshots/specimen-tray.png)
+![Skill workspace](docs/screenshots/workspace.png)
+
+![Origin assignment](docs/screenshots/origin-assign.png)
 
 ## CHANGE SAFELY
 
@@ -86,6 +88,14 @@ Selecting a skill opens an origin-led evidence workspace instead of a drawer. Pu
 Drifted skills and uncommitted repo copies surface in a focused queue. Inspect the change before acting - the queue never applies anything on its own.
 
 ![Mutation queue](docs/screenshots/mutation-queue.png)
+
+### Browse and Attention
+
+The Browse view lists every discovered skill for quick lookup, and the Attention view collects the drift, pending, and review-worthy items that need a decision.
+
+![Browse view](docs/screenshots/browse.png)
+
+![Attention view](docs/screenshots/attention.png)
 
 ### Sync preview and confirmation
 
