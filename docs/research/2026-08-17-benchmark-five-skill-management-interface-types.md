@@ -15,11 +15,13 @@ Five existing tool families converge on the same operating contract Skill Manage
 4. **Attention surfaces are curated queues, not raw lists.** GitHub Actions re-run (all / failed / specific job), n8n executions tab, Backstage "Unprocessed Entities", VS Code `@updates` filter - every mature tool has a *filtered* working set for "what needs me now". Skill Manager's Attention view is the right shape; benchmark data suggests it should carry the *reason* and the *action* together (e.g. "drift, reason: repo copy edited since HEAD, action: preview sync").
 5. **Identity is stable and namespaced.** VS Code `publisher.extension`, Claude plugin skills `plugin-name:skill-name`, Backstage entity references. Skill Manager's canonical-origin + variant model benefits from an explicit, stable identity grammar users can read and type.
 
+6. **A direct peer product exists and validates the domain.** [abubakarsiddik31/skill-manager](https://github.com/abubakarsiddik31/skill-manager) (Tauri desktop app, MIT, v0.3.1, added 2026-08-17 after review) is a one-dashboard UI over the exact same problem - Agent Skills scattered across agent tools - built around reversible enable/disable, per-project views, and a "seen by N tools" copy model. It is the closest analog in this benchmark: it shows which interaction patterns the market expects from a skill-management dashboard, and where it stops short (no preview-before-write, no drift/evidence model, no provenance, no canonical repo) is precisely where Skill Manager's contracts exceed it. Full analysis in Category 2.
+
 Detailed per-reference analysis follows, with verbatim quotes from primary sources, then a borrow/reject matrix mapped to Skill Manager surfaces.
 
 ## Method and evidence level
 
-- pi-web-access MCP tools (`web_search`, `fetch_content`) were **not exposed in this session**, so primary sources were fetched directly (curl raw HTML / `raw.githubusercontent.com` / official `.md` doc endpoints) and, for the Agent Skills standard, by shallow `git clone` of the official `anthropics/skills` repository. This is **fidelity level 1 (raw bytes of primary sources)** - verbatim text, no summarization layer.
+- pi-web-access MCP tools (`web_search`, `fetch_content`) were **not exposed in this session**, so primary sources were fetched directly (curl raw HTML / `raw.githubusercontent.com` / official `.md` doc endpoints) and, for the Agent Skills standard, by shallow `git clone` of the official `anthropics/skills` repository. The direct peer product in Category 2 was also shallow-cloned and read at source level (README + Rust adapters + React components + GitHub API release metadata). This is **fidelity level 1 (raw bytes of primary sources)** - verbatim text, no summarization layer.
 - All cited URLs were retrieved 2026-08-17 unless noted. Trust class for every source: **Web** (outside the codebase trust boundary) but drawn from **first-party official docs / official source repositories** (proximity to origin is high). Claims that rest on a single source are labeled single-source. Where a captured page did not document a dimension (notably responsive/a11y specifics), that is labeled **not evidenced in captured source** rather than guessed.
 - Blocks encountered (labeled, no workaround that would degrade fidelity): `marketplace.visualstudio.com` returned HTTP 503 (bot protection); `help.openai.com` returned 403; smithery.ai's interactive grid UI was captured as rendered card text only.
 
@@ -68,6 +70,8 @@ Detailed per-reference analysis follows, with verbatim quotes from primary sourc
 
 ## Category 2 - Prompt, skill, or agent registries
 
+Two deep references in this category: the Anthropic Agent Skills ecosystem (the open standard + Claude Code's implementation) and, added after review, a direct peer product - a desktop skill-management UI over the same standard.
+
 ### Deep reference: Anthropic Agent Skills ecosystem (Claude Code docs + agentskills.io standard + anthropics/skills repo)
 
 **Primary sources:** code.claude.com/docs/en/skills (retrieved 2026-08-17); agentskills.io/specification.md + /clients.md + /skill-creation/* (markdown endpoints); `anthropics/skills` repository cloned at HEAD (README + spec redirect).
@@ -94,6 +98,40 @@ Detailed per-reference analysis follows, with verbatim quotes from primary sourc
 
 **Reject:**
 - Cloud-sync trust degradation is not directly applicable (Skill Manager is local-only), but the *principle* - "less provenance = less capability" - already matches Skill Manager's private/local origin rules (no stars, no pinned revisions). Keep as is.
+
+### Deep reference: abubakarsiddik31/skill-manager - direct peer product (Tauri desktop app)
+
+**Primary sources:** official repository cloned at HEAD (README.md, `src-tauri/src/skills/mod.rs`, `src-tauri/src/skills/claude.rs`, `src/App.tsx`, `src/components/EditorModal.tsx`, `src/components/SkillCard.tsx`, `src/components/Sidebar.tsx`, `src/hooks/useSkillMutations.ts`) plus GitHub API metadata (release v0.3.1, published 2026-08-16; repo created 2026-08-13; MIT; 9 stars at retrieval). Added 2026-08-17 per review. Trust class: **Codebase/runtime** for the source read, **Web** for GitHub API metadata. This is the only reference in the note read at full source level.
+
+**What it is:** "One dashboard to manage every AI coding agent skill you've installed. Discover, enable, disable, edit, and delete Agent Skills across Claude Code, Codex, Cursor, Gemini CLI, VS Code, Crush, Roo Code, Kiro, Junie, Factory Droid, OpenCode - and every tool that reads the shared `~/.agents/skills` folder (Goose, Amp, ...)" - a Tauri (Rust + React) desktop app over the same five-location problem Skill Manager solves.
+
+**Target user:** The multi-agent coding user hit by "skill hell": "eleven folders, zero shared view". The README's framing is an attention/accuracy argument, not just tidiness: "the more skills compete for a match, the worse an agent gets at triggering the right one. Disabling what you don't need for the current project is how you climb back out."
+
+**Core mental model:** The skill folder is the unit; a skill is either enabled (in the tool's skills directory) or disabled (moved to a sibling `.disabled/` folder inside the same directory). The adapter docstring states it explicitly: "None of these tools ship a native enable/disable switch, so Skill Manager introduces its own convention: disabled skills are moved into a sibling `.disabled/` folder inside the same skills directory. That keeps the operation reversible and leaves the tool's own files untouched otherwise." A skill's `SKILL.md` path is its stable ID ("Doubles as a stable, unique identifier across the app's lifetime"). Shared-copy awareness: a skill in `~/.agents/skills` is "seen by" every tool that scans it.
+
+**Navigation and entry surface:** Left sidebar - "All skills" entry, one row per tool with skill counts, pinned tools, and a top-3 most-used projects list (30-day window) above a "more" dialog (`PREVIEW_COUNT = 6` tool rows before collapse, `MOST_USED_COUNT = 3`); topbar shows the active view title, subtitle ("N shown" / project path), folder chips, and a search box over names and descriptions. Selecting a tool shows the union of every folder that tool reads (the shared `~/.agents` folder correctly appears under every tool that discovers it). Project views are per-project breakdowns, separate from global.
+
+**Detail/workspace model:** List rows (SkillCard) carry a toggle switch, name, tool tag, scope tag (`user`/`project`), description, absolute path, and a "seen by" chip row (first 3 tools + "+N") when a copy is shared. Clicking a row opens an EditorModal: rendered markdown view with a "read by N tools" box listing reader chips (primary location vs "via the shared folder" compat role) and an explicit warning when one copy on disk affects multiple tools, plus a view/edit toggle to raw `SKILL.md` textarea, save/cancel, and delete.
+
+**Attention and action patterns:** Enable/disable toggle is the primary action; disabled rows are visually marked (card class `disabled`). Delete is present but secondary (modal footer, danger-styled). Project discovery is proactive: "the app finds folders you already work in (Claude Code history, editor recents, git repos) and offers them as one-click suggestions in the sidebar and in a searchable picker, with activity times and skill counts on every row." Pinning and most-used-first ordering shape the working set.
+
+**Preview, confirmation, rollback, safety patterns:** Enable/disable is the reversible path - no confirmation dialog, because the operation is a folder move with an exact inverse (tested: `disable_then_enable_round_trips` asserts the manifest returns to the exact original path). Symlinked skills get deliberate care: `move_skill_entry` resolves a link's real target and recreates an absolute symlink at the destination, with a dedicated test (`disabling_a_relative_symlinked_skill_keeps_it_resolvable`) for the Cursor-style "shared via relative symlink" case. Delete is the only destructive action and requires a native `confirm()` dialog: `Delete "${skill.name}"? This removes its folder from disk.` Edits write straight to disk (no preview/diff, no undo). README FAQ: "It never touches a tool's own config or settings files" and "Nothing is deleted until you explicitly delete it." Distribution caveat: v0.3.1 is not code-signed/notarized - Gatekeeper/SmartScreen warnings on first launch (labeled in the README and release notes).
+
+**Responsive/accessibility cues:** Desktop app (macOS/Windows/Linux). Escape closes the modal; buttons carry `title` tooltips; toggle and card clicks are separated (stopPropagation). No formal a11y statement in the captured source (labeled not evidenced).
+
+**Borrow for Skill Manager:**
+- **The reversible `.disabled/` toggle.** A non-destructive off switch with an exact inverse and a test-proven round trip is the cleanest enable/disable primitive in this benchmark. Skill Manager's read-only evidence model doesn't mutate targets casually, but a "disabled" presentation state (attention item, not silent) borrows the reversibility promise.
+- **"Seen by N tools" chips with role labeling.** Showing which agents read a shared copy, and *how* (primary folder vs shared/compat), at the row level is a direct, verified pattern for Skill Manager's variant/copy model - the README already gestures at this in list strips; the peer confirms it as a row-level affordance.
+- **Per-project breakdown separate from global.** Project-scoped views (`.claude/skills` etc.) with counts are a navigation pattern Skill Manager's workspace currently scopes differently; worth borrowing as a secondary view for operators who maintain per-project skills.
+- **Proactive project discovery** (Claude history, editor recents, git repos) as sidebar suggestions - a low-cost attention aid for the Browse surface.
+- **Scope tags on rows** (`user`/`project`) - instant disambiguation of where a copy lives.
+
+**Reject / gap analysis for Skill Manager:**
+- **No preview-before-write anywhere.** Edits save straight to disk; there is no diff step, no hash check, no "what will change" surface. Skill Manager's preview/confirm + verified-apply is strictly stronger; do not copy the write-immediately behavior.
+- **No drift, integrity, or evidence model.** It compares nothing: no hashing of copies, no repo-canonical comparison, no provenance, no origin, no versioning, no upstream concept. Its "enabled" is a folder move, not a verified state. This is the sharpest contrast in the benchmark: the peer manages *disposition* (on/off/delete) while Skill Manager manages *evidence* (what each agent sees, why, and how safe a change is).
+- **Delete is permanent with only a confirm() dialog** and no trash/rollback. Skill Manager's snapshot-and-verify discipline should not regress to this.
+- **Minimal frontmatter parser** (name + description only) means the dashboard is blind to the rest of a skill's metadata; Skill Manager's full-frontmatter scan + compatibility profiles are a deliberate superset.
+- **No repository/canonical anchor** - the app has no "source of truth" beyond the folders it reads, so multi-machine consistency is out of scope. Skill Manager's repo-canonical model is the differentiator.
 
 ### Supplement: OpenAI GPT Store (official announcement, openai.com/index/introducing-gpts)
 
@@ -253,7 +291,8 @@ Detailed per-reference analysis follows, with verbatim quotes from primary sourc
 | Sync preview / apply | chezmoi diff-then-apply (separate named steps), `-n -v` plan verb; n8n publish modal with version name + description; VS Code publisher-trust dialog at first origin contact | VS Code auto-update-with-delay |
 | Verified apply / rollback | n8n named versions + restore/unpublish; GitHub Actions original-actor privilege binding (principle) | - |
 | Upstream updates | Homebrew pin/unpin as "hold this revision"; Home Manager release-branch pinning; mise single declarative file (`skillmgr.yaml` corroboration) | remote one-click install (smithery-style) |
-| Variant matrix | Agent Skills source-level precedence ladder rendered as an explainable order; `allowed-tools` review at first contact | - |
+| Variant matrix | Agent Skills source-level precedence ladder rendered as an explainable order; `allowed-tools` review at first contact; peer's "seen by N tools" chips + scope tags on rows | peer's write-immediately edit (no preview) |
+| Enable/disable (peer-proposed surface) | peer's reversible `.disabled/` toggle with tested round trip; per-project breakdown views; proactive project discovery | peer's permanent delete with confirm()-only; minimal frontmatter parser |
 | Safety/evidence language | Backstage "should not replace whatever previously error-free version"; n8n "Published, error" state naming; Claude Code less-trust-gets-less-capability for synced skills | - |
 
 ## Gaps and no-evidence labels (per the shared evidence rule)
@@ -261,7 +300,7 @@ Detailed per-reference analysis follows, with verbatim quotes from primary sourc
 - **marketplace.visualstudio.com item pages** returned HTTP 503 during retrieval; the VS Code details-page model is documented from the official editor docs page instead (single-source for the details-page claims, though the same model is corroborated by the docs' own description of the details page).
 - **help.openai.com** returned HTTP 403; GPT Store *UI* specifics (categories, leaderboard mechanics as seen in product) are not evidenced - the announcement page is the cited primary source for GPT Store claims. No store-UI claims are made.
 - **smithery.ai grid UI** was captured as rendered card text (name + description + docs link); interactive behaviors (filtering, install commands) are not evidenced beyond the docs API-reference sidebar (`servers`, `skills` namespaces).
-- **Responsive/accessibility**: explicitly documented only where the captured page said so (VS Code keyboard/CLI paths, n8n hotkeys, agentskills.io responsive grid + dark mode). For Backstage, GitHub Actions, and chezmoi, responsive/a11y cues were **not present in the captured primary sources** - labeled not evidenced, not inferred. Skill Manager's own tablet/mobile stacked-workspace behavior stands without a benchmark analog.
+- **Responsive/accessibility**: explicitly documented only where the captured page said so (VS Code keyboard/CLI paths, n8n hotkeys, agentskills.io responsive grid + dark mode). For Backstage, GitHub Actions, chezmoi, and the peer desktop app (abubakarsiddik31/skill-manager), responsive/a11y cues were **not present in the captured primary sources** - labeled not evidenced, not inferred. Skill Manager's own tablet/mobile stacked-workspace behavior stands without a benchmark analog.
 - **Agent-reach was not needed**: every source above is open-web and reachable via direct primary-source fetch; no platform was blocked in a way that required the fallback layer (per rule 8b, pi-web-access tools were not exposed in this session, so primary-source raw fetches were used at fidelity level 1).
 
 ## Source appendix
@@ -281,6 +320,7 @@ All retrieved 2026-08-17. Trust class: Web (first-party official docs / official
 - anthropics/skills repository (official source, cloned at HEAD): https://github.com/anthropics/skills (spec location note: https://agentskills.io/specification)
 - OpenAI "Introducing GPTs" (official announcement): https://openai.com/index/introducing-gpts/ (single-source for store mechanics; help.openai.com was 403-blocked)
 - smithery.ai (official): https://smithery.ai/ and https://docs.smithery.ai/ (note: smithery is part of Arcade.dev per docs banner)
+- **abubakarsiddik31/skill-manager (direct peer product; official source + releases + site; added 2026-08-17 after review)**: https://github.com/abubakarsiddik31/skill-manager (cloned at HEAD; README + source read verbatim), https://github.com/abubakarsiddik31/skill-manager/releases (v0.3.1, 2026-08-16), https://abubakarsiddik31.github.io/skill-manager/ (landing page)
 
 **Category 3 - dotfile/config/env managers**
 - chezmoi Quick start (official docs): https://www.chezmoi.io/quick-start/
