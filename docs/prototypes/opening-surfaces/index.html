@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PROTOTYPE — Compare opening surfaces</title>
+    <style>
+      /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 */
+      /* Three variants of Skill Manager's opening surface, ?variant=A|B|C */
+      :root {
+        --bg: #0b0e12;
+        --bg-raised: #10151b;
+        --surface: #131920;
+        --surface-hover: #19212a;
+        --surface-selected: #202a35;
+        --ink: #e8edf2;
+        --muted: #9ba7b5;
+        --faint: #6e7c8c;
+        --line: #29333e;
+        --line-strong: #3b4856;
+        --accent: #e8b44a;
+        --accent-ink: #1b1406;
+        --good: #4fcf8b;
+        --warn: #e8b44a;
+        --danger: #e26d5a;
+        --info: #78b5ee;
+        --genome-fill: #bdc9d5;
+        --genome-empty: #1a222c;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 10px;
+        --shadow-1: 0 16px 40px rgba(0, 0, 0, 0.28);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { min-height: 100%; background: var(--bg); color: var(--ink); font: 400 14px/1.45 var(--sans); }
+      html, body { overflow-x: clip; }
+      button, input { font: inherit; color: inherit; }
+      button { cursor: pointer; background: none; border: 0; }
+      button:focus-visible, input:focus-visible, a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .proto-banner {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        padding: 8px 18px;
+        background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+        border-bottom: 1px solid var(--line-strong);
+        font: 700 10px/1.4 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .proto-banner a { color: var(--ink); }
+      #app { min-height: calc(100vh - 34px); padding-bottom: 132px; }
+      .kicker { color: var(--faint); font: 700 9px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; }
+      .gold { color: var(--accent); }
+      .bad { color: var(--danger); }
+      .good { color: var(--good); }
+      .info { color: var(--info); }
+      .muted { color: var(--muted); }
+      .faint { color: var(--faint); }
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        min-height: 22px; padding: 0 8px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        font: 700 9px/1 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .pill.high { border-color: var(--danger); color: var(--danger); }
+      .pill.med { border-color: var(--warn); color: var(--warn); }
+      .pill.ok { border-color: var(--good); color: var(--good); }
+      .act {
+        min-height: 32px; padding: 0 11px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--muted);
+        font: 700 10px/1 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .act:hover { border-color: var(--accent); color: var(--accent); }
+      .act.primary { border-color: var(--accent); color: var(--accent-ink); background: var(--accent); }
+      .act.primary:hover { filter: brightness(1.05); color: var(--accent-ink); }
+      .act.danger { border-color: var(--danger); color: var(--danger); }
+      .act:disabled { opacity: 0.45; cursor: not-allowed; }
+      .strip { display: inline-flex; gap: 3px; align-items: center; }
+      .cell {
+        width: 14px; height: 10px; border-radius: 1px;
+        background: var(--genome-empty);
+      }
+      .cell.on { background: var(--genome-fill); }
+      .cell.break { background: var(--danger); box-shadow: 0 0 8px rgba(226,109,90,0.35); }
+      .cell.miss { background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+      /* A — Attention-first: grouped queue + reason pane */
+      .A { display: grid; grid-template-columns: 280px minmax(0, 1fr) minmax(280px, 360px); min-height: calc(100vh - 34px); }
+      .A-nav { padding: 22px 16px; border-right: 1px solid var(--line); background: var(--bg-raised); }
+      .A-brand { font: 700 16px/1 var(--mono); letter-spacing: -0.05em; text-transform: uppercase; }
+      .A-nav p { margin: 10px 0 22px; color: var(--faint); font: 11px/1.4 var(--mono); }
+      .bucket {
+        display: flex; justify-content: space-between; width: 100%;
+        min-height: 36px; padding: 0 10px; margin-bottom: 4px;
+        border-radius: var(--radius-sm); color: var(--faint);
+        font: 700 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+      }
+      .bucket[aria-pressed="true"] { background: var(--surface-selected); color: var(--ink); }
+      .bucket .n { color: var(--danger); }
+      .A-queue { min-width: 0; padding: 18px 20px 28px; }
+      .A-head { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 14px; }
+      .A-head h1 { font: 700 22px/1 var(--mono); letter-spacing: -0.04em; }
+      .row {
+        display: grid; grid-template-columns: 64px minmax(0, 1fr) auto;
+        gap: 12px; align-items: center;
+        width: 100%; text-align: left;
+        padding: 12px 10px; border-top: 1px solid var(--line);
+      }
+      .row:hover, .row[aria-pressed="true"] { background: var(--surface-hover); }
+      .row strong { display: block; font: 650 14px/1.2 var(--mono); }
+      .row small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+      .A-pane { padding: 20px 18px; border-left: 1px solid var(--line); background: var(--surface); }
+      .A-pane h2 { margin: 8px 0 6px; font: 700 20px/1.15 var(--mono); letter-spacing: -0.04em; }
+      .reason { margin: 14px 0; padding: 12px; border-left: 3px solid var(--danger); background: var(--bg); color: var(--ink); }
+      .stack { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+
+      /* B — Catalog-first: table + bottom inspector */
+      .B { padding: 22px 28px 0; }
+      .B-top { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 16px; }
+      .B-top h1 { font: 700 26px/1 var(--mono); letter-spacing: -0.05em; text-transform: uppercase; }
+      .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 16px; }
+      .filters button {
+        min-height: 28px; padding: 0 10px;
+        border: 1px solid var(--line-strong); border-radius: 999px;
+        color: var(--muted); font: 700 10px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+      }
+      .filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+      th { color: var(--faint); font: 700 9px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+      tr { cursor: pointer; }
+      tr:hover td { background: var(--surface-hover); }
+      tr[aria-selected="true"] td { background: var(--surface-selected); }
+      .B-drawer {
+        position: fixed; left: 0; right: 0; bottom: 72px; z-index: 8;
+        max-height: 42vh; overflow: auto;
+        padding: 16px 28px 20px;
+        border-top: 1px solid var(--line-strong);
+        background: var(--bg-raised);
+        box-shadow: var(--shadow-1);
+      }
+      .B-drawer-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 18px; }
+      .B-drawer h2 { font: 700 18px/1.2 var(--mono); }
+
+      /* C — Workspace-first: record is the page */
+      .C { display: grid; grid-template-columns: 88px minmax(0, 1fr) 300px; min-height: calc(100vh - 34px); }
+      .C-rail { padding: 18px 10px; border-right: 1px solid var(--line); background: var(--bg-raised); }
+      .C-rail button {
+        display: block; width: 100%; min-height: 48px; margin-bottom: 6px;
+        border-radius: var(--radius-sm); color: var(--faint);
+        font: 700 9px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+      }
+      .C-rail button[aria-pressed="true"] { background: var(--surface-selected); color: var(--ink); }
+      .C-main { min-width: 0; padding: 22px 28px 40px; }
+      .C-switch { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 20px; }
+      .C-switch button {
+        min-height: 28px; padding: 0 10px;
+        border: 1px solid var(--line); border-radius: var(--radius-sm);
+        color: var(--muted); font: 700 11px/1 var(--mono);
+      }
+      .C-switch button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+      .hero { padding: 18px 18px 16px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius-lg); }
+      .hero h1 { margin: 6px 0 8px; font: 700 clamp(22px, 3vw, 32px)/1.05 var(--mono); letter-spacing: -0.045em; }
+      .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+      .fact { padding: 10px; border-top: 1px solid var(--line); }
+      .fact b { display: block; font: 700 13px/1.2 var(--mono); }
+      .fact span { color: var(--faint); font: 700 9px/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+      .cols { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; margin-top: 18px; }
+      .card { padding: 14px; border: 1px solid var(--line); background: var(--bg-raised); border-radius: var(--radius-md); }
+      .card h3 { margin-bottom: 10px; font: 700 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+      .C-ops { padding: 18px 16px; border-left: 1px solid var(--line); background: var(--surface); }
+      .C-ops h2 { margin-bottom: 12px; font: 700 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+      .ladder { list-style: none; }
+      .ladder li { display: grid; grid-template-columns: 72px 1fr; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+      .vrow { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--line); font: 650 12px/1.3 var(--mono); }
+
+      .modal {
+        position: fixed; inset: 0; z-index: 30;
+        display: grid; place-items: center;
+        background: rgba(6, 8, 10, 0.62);
+        padding: 24px;
+      }
+      .modal[hidden] { display: none; }
+      .sheet {
+        width: min(720px, 100%);
+        max-height: 86vh; overflow: auto;
+        padding: 22px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-lg);
+        background: var(--bg-raised);
+        box-shadow: var(--shadow-1);
+      }
+      .sheet h2 { font: 700 20px/1.2 var(--mono); }
+      .preview { margin: 14px 0; padding: 12px; background: var(--bg); border: 1px solid var(--line); font: 12px/1.45 var(--mono); }
+      .field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+      .field input, .field select {
+        min-height: 34px; padding: 0 10px;
+        border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+        background: var(--bg); color: var(--ink);
+      }
+
+      .switcher {
+        position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+        z-index: 40;
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid #f2d48a;
+        border-radius: 999px;
+        background: #16120a;
+        color: #f6e7b8;
+        box-shadow: var(--shadow-1);
+        font: 700 11px/1 var(--mono);
+        letter-spacing: 0.04em;
+      }
+      .switcher button {
+        width: 32px; height: 32px; border-radius: 999px;
+        background: #2a230f; color: #f6e7b8;
+      }
+      .statebox {
+        position: fixed; right: 14px; bottom: 18px; z-index: 40;
+        width: min(320px, calc(100vw - 28px));
+        max-height: 28vh; overflow: auto;
+        padding: 10px 12px;
+        border: 1px dashed var(--line-strong);
+        background: rgba(11, 14, 18, 0.92);
+        color: var(--faint);
+        font: 10px/1.4 var(--mono);
+      }
+      @media (max-width: 980px) {
+        .A, .C { grid-template-columns: 1fr; }
+        .A-nav, .C-rail, .A-pane, .C-ops { border: 0; border-top: 1px solid var(--line); }
+        .facts, .cols, .B-drawer-grid { grid-template-columns: 1fr; }
+        .B-drawer { position: static; max-height: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proto-banner">
+      <span>Throwaway prototype · not production · ticket: Compare candidate opening surfaces</span>
+      <span><a href="./moodboard.html">Moodboard</a> · same tasks in every shell · state dump is live</span>
+    </div>
+    <div id="app"></div>
+    <div class="switcher" role="navigation" aria-label="Prototype variants">
+      <button type="button" id="prevV" aria-label="Previous variant">←</button>
+      <span id="vLabel">A — Attention-first</span>
+      <button type="button" id="nextV" aria-label="Next variant">→</button>
+    </div>
+    <pre class="statebox" id="statebox"></pre>
+    <div class="modal" id="modal" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <p class="kicker" id="modalKicker">Preview</p>
+        <h2 id="modalTitle">Action</h2>
+        <div id="modalBody"></div>
+        <div class="stack" id="modalActions"></div>
+      </div>
+    </div>
+    <script>
+      const VARIANTS = [
+        { key: "A", name: "Attention-first" },
+        { key: "B", name: "Browse / catalog-first" },
+        { key: "C", name: "Skill-workspace-first" },
+      ];
+      const SKILLS = [
+        {
+          name: "agent-reach",
+          status: "DRIFT",
+          copies: { pi: "on", opencode: "on", claude: "break", shared: "break", repo: "on" },
+          reason: "claude, shared, and repo have different SKILL.md content.",
+          origin: { type: "github", label: "verified public GitHub", url: "intelligentrascal/agent-skills", rev: "c7e91aa", path: "skills/research/agent-reach/SKILL.md" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees via global path", "inferred"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [
+            ["Pi", "Deployed"],
+            ["Claude", "Canonical"],
+            ["OpenCode", "Verified"],
+            ["Codex", "Unknown"],
+          ],
+          review: { pending: true, from: "c7e91aa", uncertainty: "OpenCode trigger mapping is inferred." },
+          attention: ["drift", "review"],
+        },
+        {
+          name: "code-review",
+          status: "DRIFT",
+          copies: { pi: "on", opencode: "break", claude: "on", shared: "on", repo: "on" },
+          reason: "opencode and repo have different SKILL.md content.",
+          origin: { type: "github", label: "verified public GitHub", url: "intelligentrascal/agent-skills", rev: "9f12b80", path: "skills/engineering/code-review/SKILL.md" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees a drifted copy", "documented"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Verified"], ["Claude", "Canonical"], ["OpenCode", "Deployed"], ["Codex", "Unknown"]],
+          review: { pending: false },
+          attention: ["drift"],
+        },
+        {
+          name: "diagnosing-bugs",
+          status: "DRIFT",
+          copies: { pi: "break", opencode: "on", claude: "on", shared: "on", repo: "on" },
+          reason: "pi and repo have different SKILL.md content.",
+          origin: { type: "mine", label: "mine / local", url: "local", rev: "—", path: "skills/engineering/diagnosing-bugs/SKILL.md" },
+          explain: [
+            ["pi", "Sees a drifted copy", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees via global path", "inferred"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Deployed"], ["Claude", "Canonical"], ["OpenCode", "Canonical"], ["Codex", "Unknown"]],
+          review: { pending: false },
+          attention: ["drift"],
+        },
+        {
+          name: "grilling",
+          status: "ORIGIN",
+          copies: { pi: "on", opencode: "on", claude: "on", shared: "on", repo: "miss" },
+          reason: "No managed canonical origin. Copies exist, but nothing is the repo source of truth.",
+          origin: { type: "none", label: "unassigned", url: "—", rev: "—", path: "—" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees via shared folder", "inferred"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Unknown"], ["Claude", "Unknown"], ["OpenCode", "Unknown"], ["Codex", "Unknown"]],
+          review: { pending: false },
+          attention: ["origin"],
+        },
+        {
+          name: "research",
+          status: "REVIEW",
+          copies: { pi: "on", opencode: "on", claude: "on", shared: "on", repo: "on" },
+          reason: "Adaptation Review ready for upstream c7e91aa. Apply is blocked until the review is accepted.",
+          origin: { type: "github", label: "verified public GitHub", url: "intelligentrascal/agent-skills", rev: "b41dd02", path: "skills/research/research/SKILL.md" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees via global path", "inferred"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Variant stored"], ["Claude", "Canonical"], ["OpenCode", "Variant stored"], ["Codex", "Unknown"]],
+          review: { pending: true, from: "c7e91aa", uncertainty: "Codex profile is unknown, not a failure." },
+          attention: ["review"],
+        },
+        {
+          name: "tdd",
+          status: "MIRROR",
+          copies: { pi: "on", opencode: "on", claude: "on", shared: "on", repo: "on" },
+          reason: "All five locations match. No attention item.",
+          origin: { type: "github", label: "verified public GitHub", url: "intelligentrascal/agent-skills", rev: "11ae902", path: "skills/engineering/tdd/SKILL.md" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees via global path", "inferred"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Verified"], ["Claude", "Canonical"], ["OpenCode", "Verified"], ["Codex", "Unknown"]],
+          review: { pending: false },
+          attention: [],
+        },
+        {
+          name: "hallmark",
+          status: "MIRROR",
+          copies: { pi: "on", opencode: "miss", claude: "on", shared: "on", repo: "on" },
+          reason: "Identical copies where present. OpenCode has no copy.",
+          origin: { type: "github", label: "verified public GitHub", url: "Nutlope/hallmark", rev: "4e22c10", path: "SKILL.md" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Does not see this skill", "documented"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Canonical"], ["Claude", "Canonical"], ["OpenCode", "Unknown"], ["Codex", "Unknown"]],
+          review: { pending: false },
+          attention: [],
+        },
+        {
+          name: "domain-modeling",
+          status: "UNCERTAIN",
+          copies: { pi: "on", opencode: "on", claude: "on", shared: "on", repo: "on" },
+          reason: "Copies match, but the last verified apply left an Attention item: push to agent-skills/main was rejected.",
+          origin: { type: "github", label: "verified public GitHub", url: "intelligentrascal/agent-skills", rev: "88c0f1e", path: "skills/engineering/domain-modeling/SKILL.md" },
+          explain: [
+            ["pi", "Sees via global path", "documented"],
+            ["claude", "Sees via global path", "documented"],
+            ["opencode", "Sees via global path", "inferred"],
+            ["codex", "No versioned discovery profile", "unknown"],
+          ],
+          variants: [["Pi", "Verified"], ["Claude", "Canonical"], ["OpenCode", "Verified"], ["Codex", "Unknown"]],
+          review: { pending: false },
+          attention: ["uncertain"],
+          retry: true,
+        },
+      ];
+
+      const state = {
+        variant: "A",
+        bucket: "drift",
+        filter: "all",
+        selected: "agent-reach",
+        lastAction: "opened prototype",
+        preview: null,
+        applyReady: false,
+        originDraft: "github",
+        modal: null,
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const skill = () => SKILLS.find((s) => s.name === state.selected) || SKILLS[0];
+      const strip = (copies) =>
+        ["pi", "opencode", "claude", "shared", "repo"]
+          .map((loc) => `<i class="cell ${copies[loc] === "on" ? "on" : copies[loc] === "break" ? "break" : "miss"}" title="${loc}"></i>`)
+          .join("");
+      function currentUrl() {
+        try {
+          return new URL(location.href);
+        } catch {
+          return new URL("http://127.0.0.1/prototype?variant=A");
+        }
+      }
+      function setHtml(el, markup) {
+        const parsed = new DOMParser().parseFromString(markup, "text/html");
+        el.replaceChildren(...parsed.body.childNodes);
+      }
+
+      function setVariant(key) {
+        state.variant = key;
+        const url = currentUrl();
+        url.searchParams.set("variant", key);
+        history.replaceState(null, "", url);
+        $("vLabel").textContent = `${key} — ${VARIANTS.find((v) => v.key === key).name}`;
+        render();
+      }
+      function cycle(dir) {
+        const i = VARIANTS.findIndex((v) => v.key === state.variant);
+        setVariant(VARIANTS[(i + dir + VARIANTS.length) % VARIANTS.length].key);
+      }
+      function select(name, action) {
+        state.selected = name;
+        state.lastAction = action || `selected ${name}`;
+        render();
+      }
+      function dump() {
+        $("statebox").textContent = JSON.stringify(
+          {
+            variant: state.variant,
+            selected: state.selected,
+            bucket: state.bucket,
+            filter: state.filter,
+            lastAction: state.lastAction,
+            preview: state.preview,
+            applyReady: state.applyReady,
+            originDraft: state.originDraft,
+            modal: state.modal,
+          },
+          null,
+          2,
+        );
+      }
+
+      function closeModal() {
+        state.modal = null;
+        $("modal").hidden = true;
+        dump();
+      }
+      function openModal(kind) {
+        const s = skill();
+        state.modal = kind;
+        $("modal").hidden = false;
+        const title = {
+          diagnose: `Diagnose drift · ${s.name}`,
+          explain: `Explain · ${s.name}`,
+          origin: `Assign origin · ${s.name}`,
+          review: `Adaptation Review · ${s.name}`,
+          apply: `Verified apply · ${s.name}`,
+        }[kind];
+        $("modalKicker").textContent = "Preview before write";
+        $("modalTitle").textContent = title;
+        let body = "";
+        let actions = "";
+        if (kind === "diagnose") {
+          state.preview = { kind: "sync", from: "repo", targets: ["claude", "shared"].filter((t) => s.copies[t] === "break" || s.copies[t] === "on") };
+          body = `<p class="muted">${s.reason}</p>
+            <div class="preview">source: repo @ ${s.origin.rev}<br>targets: ${state.preview.targets.join(", ") || "none drifted"}<br>hash check: required before write<br>genome: pi opencode claude shared repo</div>
+            <p class="faint">Nothing is written until you confirm. A target is skipped if its hash moved since this preview.</p>`;
+          actions = `<button class="act" data-close>Close</button><button class="act primary" data-ready>Mark preview ready</button>`;
+        } else if (kind === "explain") {
+          body = `<ul class="ladder">${s.explain.map((e) => `<li><b>${e[0]}</b><span>${e[1]} <span class="faint">· ${e[2]}</span></span></li>`).join("")}</ul>
+            <p class="muted" style="margin-top:12px">Explain answers why a runtime sees this skill. It does not change copies.</p>`;
+          actions = `<button class="act primary" data-close>Done</button>`;
+        } else if (kind === "origin") {
+          body = `<p class="muted">A skill without a managed canonical copy can be assigned one honest origin. The import previews the selected copy and hash first.</p>
+            <label class="field">Origin type
+              <select id="originType">
+                <option value="github">Verified public GitHub</option>
+                <option value="private">Private / community</option>
+                <option value="mine">Mine / local</option>
+              </select>
+            </label>
+            <div class="preview" id="originPreview">GitHub origin will validate the repository and exact SKILL.md subpath, then pin a revision. Stars are shown only for public GitHub.</div>`;
+          actions = `<button class="act" data-close>Cancel</button><button class="act primary" data-origin>Preview assignment</button>`;
+        } else if (kind === "review") {
+          body = `<p class="muted">Upstream ${s.review.from || "—"} · ${s.review.uncertainty || "No pending review."}</p>
+            <div class="preview">behavior changes: frontmatter + body<br>affected: Pi, OpenCode<br>unknown mappings: Codex (blocked, not invented)<br>silent metadata: none</div>`;
+          actions = `<button class="act" data-close>Keep pending</button><button class="act primary" data-accept>Accept review</button>`;
+        } else {
+          const locked = !state.applyReady && !s.retry;
+          body = `<div class="preview">stage → deploy → verify → commit → push to agent-skills/main<br>canonical SKILL.md + variants + review + skillmgr.yaml<br>failure restores prior local copies<br>rejected push keeps the local commit and writes Attention</div>
+            <p class="${locked ? "bad" : "good"}">${locked ? "Apply stays locked until a preview or accepted review exists." : "Preview/review is ready. Confirm to simulate a verified apply."}</p>`;
+          actions = `<button class="act" data-close>Cancel</button><button class="act primary" data-apply ${locked ? "disabled" : ""}>Confirm verified apply</button>`;
+        }
+        setHtml($("modalBody"), body);
+        setHtml($("modalActions"), actions);
+        const type = $("originType");
+        if (type) {
+          type.value = state.originDraft;
+          type.onchange = () => {
+            state.originDraft = type.value;
+            $("originPreview").textContent =
+              type.value === "github"
+                ? "GitHub origin will validate the repository and exact SKILL.md subpath, then pin a revision. Stars are shown only for public GitHub."
+                : type.value === "private"
+                  ? "Private origin rejects credential-bearing URLs and requires an attribution note. No stars, no pinned GitHub revision."
+                  : "Mine/local records ownership only. No GitHub facts are presented.";
+            dump();
+          };
+        }
+        dump();
+      }
+
+      function actionsFor(s) {
+        return `
+          <button class="act" data-act="explain" data-skill="${s.name}">Explain</button>
+          <button class="act" data-act="diagnose" data-skill="${s.name}">Diagnose drift</button>
+          <button class="act" data-act="origin" data-skill="${s.name}">Assign origin</button>
+          <button class="act" data-act="review" data-skill="${s.name}">Adaptation review</button>
+          <button class="act primary" data-act="apply" data-skill="${s.name}">Verified apply</button>
+        `;
+      }
+
+      function attentionItems(bucket) {
+        return SKILLS.filter((s) => {
+          if (bucket === "drift") return s.attention.includes("drift");
+          if (bucket === "origin") return s.attention.includes("origin");
+          if (bucket === "review") return s.attention.includes("review");
+          if (bucket === "uncertain") return s.attention.includes("uncertain");
+          return s.attention.length;
+        });
+      }
+
+      function renderA() {
+        const items = attentionItems(state.bucket);
+        if (!items.find((s) => s.name === state.selected) && items[0]) state.selected = items[0].name;
+        const s = skill();
+        const counts = {
+          drift: attentionItems("drift").length,
+          origin: attentionItems("origin").length,
+          review: attentionItems("review").length,
+          uncertain: attentionItems("uncertain").length,
+        };
+        return `<div class="A">
+          <aside class="A-nav">
+            <div class="A-brand">Skill Manager</div>
+            <p>Open on what needs a decision.</p>
+            ${["drift", "origin", "review", "uncertain"].map((b) =>
+              `<button class="bucket" data-bucket="${b}" aria-pressed="${state.bucket === b}">${b}<span class="n">${counts[b]}</span></button>`
+            ).join("")}
+            <p class="faint" style="margin-top:22px">Fleet and Browse stay one click away. They are not the default.</p>
+          </aside>
+          <section class="A-queue">
+            <div class="A-head">
+              <div>
+                <p class="kicker">Named attention · ${state.bucket}</p>
+                <h1>${counts[state.bucket]} ${state.bucket === "drift" ? "broken copies" : "items"}</h1>
+              </div>
+              <span class="pill high">reason + next action</span>
+            </div>
+            ${items.map((item) => `
+              <button class="row" data-select="${item.name}" aria-pressed="${item.name === state.selected}">
+                <span class="pill ${item.status === "DRIFT" ? "high" : "med"}">${item.status}</span>
+                <span><strong>${item.name}</strong><small>${item.reason}</small></span>
+                <span class="strip">${strip(item.copies)}</span>
+              </button>
+            `).join("")}
+          </section>
+          <aside class="A-pane">
+            <p class="kicker">Next honest action</p>
+            <h2>${s.name}</h2>
+            <p class="muted">${s.origin.label} · ${s.origin.rev}</p>
+            <div class="reason">${s.reason}</div>
+            <p class="faint">Genome · pi opencode claude shared repo</p>
+            <div class="strip" style="margin:8px 0 12px">${strip(s.copies)}</div>
+            <div class="stack">${actionsFor(s)}</div>
+          </aside>
+        </div>`;
+      }
+
+      function renderB() {
+        const rows = SKILLS.filter((s) => state.filter === "all" || s.status.toLowerCase() === state.filter || (state.filter === "attention" && s.attention.length));
+        const s = skill();
+        return `<div class="B">
+          <div class="B-top">
+            <div>
+              <p class="kicker">258 skills · 5 locations · repo is canonical</p>
+              <h1>Fleet catalog</h1>
+            </div>
+            <input id="q" placeholder="@drift  @origin  search skills…" style="min-width:240px;min-height:34px;padding:0 12px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);">
+          </div>
+          <div class="filters">
+            ${["all", "drift", "mirror", "origin", "review", "uncertain", "attention"].map((f) =>
+              `<button data-filter="${f}" aria-pressed="${state.filter === f}">${f}</button>`
+            ).join("")}
+          </div>
+          <table>
+            <thead>
+              <tr><th>Skill</th><th>Genome</th><th>Status</th><th>Origin</th><th>Variants</th><th>Next</th></tr>
+            </thead>
+            <tbody>
+              ${rows.map((item) => `
+                <tr data-select="${item.name}" aria-selected="${item.name === state.selected}">
+                  <td><strong>${item.name}</strong></td>
+                  <td><span class="strip">${strip(item.copies)}</span></td>
+                  <td><span class="pill ${item.status === "DRIFT" ? "high" : item.status === "MIRROR" ? "ok" : "med"}">${item.status}</span></td>
+                  <td class="muted">${item.origin.label}</td>
+                  <td class="faint">${item.variants.map((v) => v[0][0]).join(" ")}</td>
+                  <td class="gold">${item.attention[0] || "inspect"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+          <aside class="B-drawer">
+            <div class="B-drawer-grid">
+              <div>
+                <p class="kicker">Selected record</p>
+                <h2>${s.name}</h2>
+                <p class="muted">${s.reason}</p>
+              </div>
+              <div>
+                <p class="kicker">Explain</p>
+                <ul class="ladder">${s.explain.map((e) => `<li><b>${e[0]}</b><span>${e[2]}</span></li>`).join("")}</ul>
+              </div>
+              <div>
+                <p class="kicker">Operations</p>
+                <div class="stack">${actionsFor(s)}</div>
+              </div>
+            </div>
+          </aside>
+        </div>`;
+      }
+
+      function renderC() {
+        const s = skill();
+        return `<div class="C">
+          <nav class="C-rail">
+            <button aria-pressed="true">Record</button>
+            <button data-jump="B">Catalog</button>
+            <button data-jump="A">Queue ${SKILLS.filter((x) => x.attention.length).length}</button>
+          </nav>
+          <section class="C-main">
+            <p class="kicker">Skill record · opens here</p>
+            <div class="C-switch">
+              ${SKILLS.map((item) =>
+                `<button data-select="${item.name}" aria-pressed="${item.name === s.name}">${item.name}</button>`
+              ).join("")}
+            </div>
+            <div class="hero">
+              <p class="kicker">${s.origin.label}</p>
+              <h1>${s.name}</h1>
+              <p class="muted">${s.origin.url} · ${s.origin.path}</p>
+              <div class="facts">
+                <div class="fact"><span>Pinned revision</span><b>${s.origin.rev}</b></div>
+                <div class="fact"><span>Copy state</span><b class="${s.status === "DRIFT" ? "bad" : "good"}">${s.status}</b></div>
+                <div class="fact"><span>Genome</span><b><span class="strip">${strip(s.copies)}</span></b></div>
+                <div class="fact"><span>Review</span><b>${s.review.pending ? "Pending" : "None"}</b></div>
+              </div>
+            </div>
+            <div class="cols">
+              <div class="card">
+                <h3>Why each runtime sees it</h3>
+                <ul class="ladder">${s.explain.map((e) => `<li><b>${e[0]}</b><span>${e[1]} · ${e[2]}</span></li>`).join("")}</ul>
+              </div>
+              <div class="card">
+                <h3>Agent variants</h3>
+                ${s.variants.map((v) => `<div class="vrow"><span>${v[0]}</span><span class="${v[1] === "Unknown" ? "faint" : "good"}">${v[1]}</span></div>`).join("")}
+                <p class="faint" style="margin-top:10px">Unknown is honest. It is not a failed adaptation.</p>
+              </div>
+            </div>
+          </section>
+          <aside class="C-ops">
+            <h2>Operate this skill</h2>
+            <p class="muted" style="margin-bottom:12px">${s.reason}</p>
+            <div class="stack">${actionsFor(s)}</div>
+            <p class="faint" style="margin-top:18px">Workspace-first keeps provenance, evidence, variants, and apply on the first screen. The fleet is a switcher, not a home.</p>
+          </aside>
+        </div>`;
+      }
+
+      function render() {
+        const markup = state.variant === "A" ? renderA() : state.variant === "B" ? renderB() : renderC();
+        setHtml($("app"), markup);
+        dump();
+      }
+
+      document.addEventListener("click", (event) => {
+        const t = event.target.closest("[data-bucket],[data-filter],[data-select],[data-act],[data-jump],[data-close],[data-ready],[data-origin],[data-accept],[data-apply]");
+        if (!t) {
+          if (event.target.id === "modal") closeModal();
+          return;
+        }
+        if (t.dataset.bucket) {
+          state.bucket = t.dataset.bucket;
+          state.lastAction = `bucket ${state.bucket}`;
+          const first = attentionItems(state.bucket)[0];
+          if (first) state.selected = first.name;
+          render();
+          return;
+        }
+        if (t.dataset.filter) {
+          state.filter = t.dataset.filter;
+          state.lastAction = `filter ${state.filter}`;
+          render();
+          return;
+        }
+        if (t.dataset.select) {
+          select(t.dataset.select);
+          return;
+        }
+        if (t.dataset.jump) {
+          setVariant(t.dataset.jump);
+          state.lastAction = `jumped to ${t.dataset.jump} from workspace rail`;
+          return;
+        }
+        if (t.dataset.act) {
+          select(t.dataset.skill, `${t.dataset.act} ${t.dataset.skill}`);
+          openModal(t.dataset.act);
+          return;
+        }
+        if (t.hasAttribute("data-close")) {
+          state.lastAction = "closed preview";
+          closeModal();
+          return;
+        }
+        if (t.hasAttribute("data-ready")) {
+          state.applyReady = true;
+          state.lastAction = `preview ready for ${state.selected}`;
+          closeModal();
+          render();
+          return;
+        }
+        if (t.hasAttribute("data-origin")) {
+          state.preview = { kind: "origin", type: state.originDraft };
+          state.lastAction = `origin preview ${state.originDraft} for ${state.selected}`;
+          closeModal();
+          render();
+          return;
+        }
+        if (t.hasAttribute("data-accept")) {
+          state.applyReady = true;
+          state.lastAction = `accepted review for ${state.selected}`;
+          closeModal();
+          render();
+          return;
+        }
+        if (t.hasAttribute("data-apply")) {
+          state.lastAction = `simulated verified apply for ${state.selected}`;
+          state.applyReady = false;
+          closeModal();
+          render();
+        }
+      });
+
+      $("prevV").onclick = () => cycle(-1);
+      $("nextV").onclick = () => cycle(1);
+      document.addEventListener("keydown", (event) => {
+        const tag = event.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return;
+        if (event.key === "ArrowLeft") cycle(-1);
+        if (event.key === "ArrowRight") cycle(1);
+        if (event.key === "Escape") closeModal();
+      });
+
+      const start = currentUrl().searchParams.get("variant");
+      setVariant(VARIANTS.some((v) => v.key === start) ? start : "A");
+    </script>
+  </body>
+</html>

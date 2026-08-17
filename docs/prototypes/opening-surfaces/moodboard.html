@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PROTOTYPE moodboard — opening surfaces</title>
+    <style>
+      :root {
+        --bg: #0b0e12;
+        --bg-raised: #10151b;
+        --surface: #131920;
+        --surface-2: #19212a;
+        --ink: #e8edf2;
+        --muted: #9ba7b5;
+        --faint: #6e7c8c;
+        --line: #29333e;
+        --line-strong: #3b4856;
+        --accent: #e8b44a;
+        --accent-ink: #1b1406;
+        --good: #4fcf8b;
+        --warn: #e8b44a;
+        --danger: #e26d5a;
+        --info: #78b5ee;
+        --genome-fill: #bdc9d5;
+        --genome-empty: #1a222c;
+        --font-display: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        --step--1: 11px;
+        --step-0: 14px;
+        --step-1: 18px;
+        --step-2: 24px;
+        --step-3: 34px;
+        --unit: 8px;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 10px;
+        --shadow-1: 0 12px 32px rgba(0, 0, 0, 0.22);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { background: var(--bg); color: var(--ink); font: 400 var(--step-0)/1.5 var(--font-body); }
+      body { max-width: 1120px; margin: 0 auto; padding: 36px 28px 80px; }
+      .kicker { color: var(--accent); font: 700 11px/1 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase; }
+      h1 { margin: 10px 0 18px; font: 700 var(--step-3)/1.05 var(--font-display); letter-spacing: -0.05em; }
+      h2 { margin: 40px 0 14px; font: 700 13px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+      p, li { color: var(--muted); max-width: 68ch; }
+      .banner { margin: 18px 0 28px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); color: var(--accent); font: 700 11px/1.4 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+      .direction { padding: 22px 24px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius-lg); }
+      .direction p { color: var(--ink); font-size: 16px; line-height: 1.55; }
+      .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+      .swatch { border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-raised); }
+      .chip { height: 56px; }
+      .swatch code { display: block; padding: 8px 10px 10px; font: 700 10px/1.35 var(--font-display); color: var(--ink); }
+      .swatch small { display: block; color: var(--faint); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+      .type { padding: 22px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius-lg); }
+      .display { font: 700 40px/1 var(--font-display); letter-spacing: -0.06em; }
+      .body-sample { margin-top: 10px; color: var(--muted); }
+      .meta { margin-top: 8px; color: var(--faint); font: 700 11px/1.4 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+      .refs { display: grid; gap: 16px; }
+      figure { margin: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-raised); }
+      figure img { display: block; width: 100%; height: auto; background: #000; }
+      figcaption { padding: 12px 14px 14px; font-size: 13px; color: var(--muted); }
+      figcaption a { color: var(--accent); }
+      ul { margin: 8px 0 0 18px; }
+    </style>
+  </head>
+  <body>
+    <p class="kicker">Throwaway · ticket 12 · not production</p>
+    <h1>Opening-surface moodboard</h1>
+    <p class="banner">Committed direction for the three shells. Genome color and type stay fixed. References inform layout and interaction only.</p>
+
+    <div class="direction">
+      <p>
+        Dark Genome instrument. Near-black layered surfaces, one warm-gold accent used only on the next safe action and the active mode. Coral is reserved for broken copies. The memorable move is a <strong>reasoned queue</strong>: every attention row names why it is here and what the next honest action is. Not a marketplace, not a card grid, not a central-library browser.
+      </p>
+    </div>
+
+    <h2>Tokens</h2>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#0b0e12"></div><code>#0b0e12<small>bg</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#10151b"></div><code>#10151b<small>bg-raised</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#131920"></div><code>#131920<small>surface</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#e8edf2"></div><code>#e8edf2<small>ink</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#9ba7b5"></div><code>#9ba7b5<small>muted</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#e8b44a"></div><code>#e8b44a<small>accent / next action</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#e26d5a"></div><code>#e26d5a<small>drift / break</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#4fcf8b"></div><code>#4fcf8b<small>verified / good</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#bdc9d5"></div><code>#bdc9d5<small>genome fill</small></code></div>
+      <div class="swatch"><div class="chip" style="background:#78b5ee"></div><code>#78b5ee<small>info / explain</small></code></div>
+    </div>
+
+    <h2>Type</h2>
+    <div class="type">
+      <div class="display">SKILL MANAGER</div>
+      <p class="body-sample">claude, shared, and repo have different SKILL.md content. Preview the repo copy before any target is written.</p>
+      <p class="meta">Display / identity: system mono · Body: system sans · 8px unit · radius 4 / 6 / 10</p>
+    </div>
+
+    <h2>Layout motifs</h2>
+    <ul>
+      <li>Attention: status-grouped queue, query chips, action on the row.</li>
+      <li>Browse: dense catalog table, filter pills, facts on select rather than a page jump.</li>
+      <li>Workspace: selected record as the page, facts rail, origin first.</li>
+      <li>Motion: 160ms enter on inspect/workspace only. No marquees, beams, or particles.</li>
+    </ul>
+
+    <h2>Viewed references</h2>
+    <div class="refs">
+      <figure>
+        <img src="refs/linear-issues.webp" alt="Linear issues list grouped by status" width="1440" height="980" />
+        <figcaption>
+          <a href="https://mobbin.com/api/mcp/short/EelgTsqo">Linear · All issues</a>
+          — grouped working set, compact ID + title rows, metadata recedes. Borrow grouping and density for Attention and Browse.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="refs/sentry-issues.webp" alt="Sentry saved view with query chips" width="1440" height="980" />
+        <figcaption>
+          <a href="https://mobbin.com/api/mcp/short/GMGV7zSf">Sentry · Medium-high view</a>
+          — named attention view plus live query chips. Borrow reason-in-the-row and composable filters. Reject purple product chrome.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="refs/vercel-models.webp" alt="Vercel browse models catalog table" width="1440" height="980" />
+        <figcaption>
+          <a href="https://mobbin.com/api/mcp/short/cNNydd88">Vercel · Browse Models</a>
+          — catalog-first inventory, category pills, spec columns. Borrow table hierarchy for Browse. Reject marketplace tone.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="refs/github-repo.webp" alt="GitHub repository page with about rail" width="1440" height="980" />
+        <figcaption>
+          <a href="https://mobbin.com/api/mcp/short/AclW3zHC">GitHub · Repository</a>
+          — record-first workspace, files plus About rail. Borrow the selected-record landing for Workspace-first.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="refs/incident-io-home.webp" alt="incident.io home with one active incident" width="1440" height="980" />
+        <figcaption>
+          <a href="https://mobbin.com/api/mcp/short/1RCsRE21">incident.io · Home</a>
+          — named empty stages, one primary declare action. Borrow empty-state honesty. Reject the promo banner and sparse kanban.
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="refs/skill-manager-dashboard.png" alt="Current Skill Manager dashboard" width="1440" height="900" />
+        <figcaption>
+          Current Genome dashboard (local capture) — mode rail, mutation queue, gold outline actions. Keep the palette and the five-location strip. The prototype changes hierarchy, not brand.
+        </figcaption>
+      </figure>
+    </div>
+
+    <h2>Other shelves reviewed</h2>
+    <ul>
+      <li><a href="https://21st.dev/">21st.dev</a> — hand-authored components, not a visual system to copy. Use as a reminder to avoid generated-card slop.</li>
+      <li><a href="https://magicui.design/">Magic UI</a> — motion library. Reject beams, marquees, and particles for this instrument.</li>
+      <li><a href="https://wiki.aarr.dev/doc/auxui-resources-oqASgwBWjE">AuxUI Resources</a> — Awwwards, FOREVER, Hallmark as anti-slop constraints.</li>
+      <li>Land-book returned 403 in this session; not used as evidence.</li>
+    </ul>
+  </body>
+</html>
