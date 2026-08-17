@@ -45,6 +45,12 @@ import { ApprovalError, approveProposal } from "./evidenceApprove.ts";
 import { nextFirstFriday1000, scheduleRegistryCheck } from "./evidenceSchedule.ts";
 import { buildAgentVariantMatrix } from "./variantMatrix.ts";
 import {
+	VerifiedApplyService,
+	ApplyError,
+	type ApplyTarget,
+} from "./apply.ts";
+import type { AdaptationReview } from "./adaptationReview.ts";
+import {
 	cachedAdaptationReview,
 	MemoryReviewCache,
 } from "./reviewCache.ts";
@@ -140,6 +146,23 @@ function evidencePaths() {
 	return registryPaths(evidenceRegistryRoot());
 }
 
+/**
+ * Discovery roots per agent, used to deploy applied revisions to the runtime
+ * copies. Honest defaults (env-overridable); codex has no scan location but is
+ * a first-class variant target, so its default home is used here only.
+ */
+function deriveDeployTargets(skill: string): ApplyTarget[] {
+	const home =
+		process.env.USERPROFILE || process.env.HOME || homedir();
+	const map: [AgentId, string][] = [
+		["pi", process.env.SM_PI_SKILLS ?? join(home, ".pi", "agent", "skills")],
+		["claude", process.env.SM_CLAUDE_SKILLS ?? join(home, ".claude", "skills")],
+		["opencode", process.env.SM_OPENCODE_SKILLS ?? join(home, ".agents", "skills")],
+		["codex", process.env.SM_CODEX_SKILLS ?? join(home, ".codex", "skills")],
+	];
+	return map.map(([agent, root]) => ({ agent, path: join(root, skill) }));
+}
+
 function originDetails(name: string) {
 	const inv = getInventory();
 	const copies = inv.byName[name] ?? [];
@@ -171,10 +194,25 @@ function originDetails(name: string) {
  * is returned through the resident cache (keyed by skill + canonical revision
  * + agent-profile revision) so an unchanged pair costs no regeneration.
  */
-async function runAdaptationReview(
+/**
+ * Resolve the baseline (current canonical) and upstream (incoming) content for a
+ * skill, plus the active agent-evidence registry. Shared by the Adaptation
+ * Review endpoint AND the verified-apply endpoint so both derive the exact same
+ * canonical content (no drift between the reviewed analysis and the applied
+ * revision). Upstream content comes from an explicit body, the manifest's
+ * pinned identity, or the detected upstream; when unavailable, the honest error
+ * matches /api/update's stance.
+ */
+async function resolveReviewInput(
 	name: string,
 	body: Record<string, unknown>,
-): Promise<ReturnType<typeof cachedAdaptationReview>> {
+): Promise<{
+	baselineContent: string;
+	baselineRevision: string;
+	upstreamContent: string;
+	upstreamRevision: string;
+	registry: ReturnType<typeof readActiveRegistry> | undefined;
+}> {
 	let manifest;
 	try {
 		manifest = loadRepoManifest();
@@ -247,14 +285,32 @@ async function runAdaptationReview(
 		registry = undefined;
 	}
 
+	return {
+		baselineContent,
+		baselineRevision,
+		upstreamContent,
+		upstreamRevision,
+		registry,
+	};
+}
+
+/**
+ * Build an Adaptation Review for a skill given a baseline (current canonical)
+ * and an upstream revision. Surfaced through the resident cache.
+ */
+async function runAdaptationReview(
+	name: string,
+	body: Record<string, unknown>,
+): Promise<ReturnType<typeof cachedAdaptationReview>> {
+	const input = await resolveReviewInput(name, body);
 	return cachedAdaptationReview(
 		{
 			skill: name,
-			baselineRevision,
-			upstreamRevision,
-			baselineContent,
-			upstreamContent,
-			registry,
+			baselineRevision: input.baselineRevision,
+			upstreamRevision: input.upstreamRevision,
+			baselineContent: input.baselineContent,
+			upstreamContent: input.upstreamContent,
+			registry: input.registry,
 		},
 		adaptationReviewCache,
 	);
@@ -497,6 +553,74 @@ const server = createServer(
 			const inv = getInventory();
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ actions: buildHealthActions(inv) }));
+			return;
+		}
+
+		if (
+			req.method === "POST" &&
+			url.pathname === "/api/adaptation-review/apply"
+		) {
+			// Verified apply transaction (ticket #7): stage -> deploy -> verify ->
+			// commit -> push the approved Adaptation Review to agent-skills/main.
+			// A deployment/verification failure restores prior local copies and
+			// reports (no commit/push). A rejected push keeps the verified local
+			// commit and writes an Attention item - never an automatic rebase.
+			try {
+				const body = (await readJsonBody(req)) as Record<string, unknown> | undefined;
+				const name = body?.name;
+				if (typeof name !== "string" || !name.trim()) {
+					throw new SyncError("Apply requests need a skill name.");
+				}
+				const review = body?.review;
+				if (!review || typeof review !== "object") {
+					throw new SyncError("Apply requests need an approved Adaptation Review.");
+				}
+				// Re-derive the exact canonical content the review analyzed so the
+				// committed revision matches the reviewed analysis (no network when
+				// the review was generated from inline upstreamContent).
+				const input = await resolveReviewInput(name, body ?? {});
+				const category =
+					typeof body.category === "string" && body.category.trim()
+						? body.category.trim()
+						: undefined;
+				const targets: ApplyTarget[] =
+					Array.isArray(body.targets) && body.targets.length
+						? (body.targets as Array<{ agent?: unknown; path?: unknown }>).map(
+								(t) => ({
+									agent: String(t.agent) as AgentId,
+									path: String(t.path),
+								}),
+							)
+					: deriveDeployTargets(name);
+				const service = new VerifiedApplyService();
+				const result = await service.apply(repoRoot(), {
+					skill: name,
+					canonicalContent: input.upstreamContent,
+					canonicalRevision: input.upstreamRevision,
+					review: review as AdaptationReview,
+					targets,
+					category,
+				});
+				invalidateAndRescan();
+				res.writeHead(result.committed ? 200 : 409, {
+					"Content-Type": "application/json",
+				});
+				res.end(JSON.stringify(result));
+			} catch (error) {
+				const status =
+					error instanceof ApplyError
+						? 409
+						: error instanceof SyncError
+							? 400
+							: 500;
+				res.writeHead(status, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error ? error.message : String(error),
+					}),
+				);
+			}
 			return;
 		}
 
