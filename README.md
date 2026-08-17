@@ -99,6 +99,18 @@ A skill that declares a pinned upstream identity in `skillmgr.yaml` (URL, subpat
 
 A claude-only skill becomes usable on pi, opencode, or codex as a linked variant: adapted per agent (claude invocation fields removed, opencode triggers added, and anything that does not carry over is reported rather than dropped), stored as a full snapshot, and deployed explicitly. The deployed copy is then re-verified; a failure is reported, and the deployment must not be treated as accepted - it is not rolled back automatically.
 
+### Agent variant matrix
+
+Every skill in the workspace shows Pi, Claude, OpenCode, and Codex in a fixed order with an honest Canonical, Variant stored, Deployed, Verified, or Unknown state. A real registered variant exposes a readable canonical diff, its canonical base revision, the active agent-profile revision, and the evidence level backing it. Absent sidecars and missing snapshots stay Unknown - never a failure or an invented adaptation. Manual variant editing is not a normal flow: the workspace points to the AI-assisted Adaptation Review as the supported path.
+
+### AI-assisted Adaptation Reviews
+
+An upstream revision can generate an Adaptation Review: it identifies the behavior changes (frontmatter fields added/removed/modified, body changes), explains the impact for every affected agent using the active evidence-backed profiles, and proposes each affected variant with its evidence and uncertainty made visible. Reviews are cached by canonical revision plus agent-profile revision, so an unchanged pair reuses prior analysis instead of costing new model work. Unknown or unsupported mappings block apply rather than inventing an adaptation; silent metadata changes (license, author, version, tags, category) surface as uncertainty rather than blockers.
+
+### Verified apply to the master repository
+
+One approved Adaptation Review updates the canonical skill and its generated variants as a single managed revision: stage, deploy, verify, commit, then push directly to `agent-skills/main`. The canonical `SKILL.md`, variant sidecars, the review analysis, and `skillmgr.yaml` provenance are committed together. Deployed copies are re-read and verified before any git mutation; a deployment or verification failure restores the prior local copies and prevents a partial commit/push. A rejected push keeps the verified local commit and writes an Attention item for safe review and retry - never an automatic rebase.
+
 ## QUICK START
 
 ```bash
@@ -130,12 +142,14 @@ Override paths with `SM_PI_SKILLS`, `SM_OPENCODE_SKILLS`, `SM_CLAUDE_SKILLS`, `S
 - **The repo is the source of truth.** Drift resolution starts from the repository copy, which is reviewable before a target changes.
 - **Manifest-pinned identity.** Upstream updates follow the identity pinned in `skillmgr.yaml` (URL, subpath, and revision). Nothing guesses from HEAD.
 - **Variant verification.** A deployed variant is re-checked against the copy the target reads. Failures are reported - a failing deployment is not removed and must not be treated as accepted.
+- **Verified apply transactions.** Apply runs stage, deploy, verify, commit, push in strict order. Deployment or verification failure rolls back local copies; a rejected push retains the local commit and creates an Attention item for review - never a rebase.
 - **Local-only binding.** The dashboard runs on `127.0.0.1` using Node built-ins only. There is no hosted backend, account, or cloud service; GitHub is contacted on demand only for upstream checks and update previews.
 
 ## LIMITS
 
 - **Runtime facts are labeled, not guessed.** Each compatibility and discovery finding is documented, inferred, or unknown. Pi and Claude profiles are documented; Codex and OpenCode profiles are inferred until runtime probes verify them.
-- **No absent repo mirror is represented as apply-capable.** The update preview marks apply as available only when the baseline is the repo mirror; an installed copy is never presented as the mirror. Apply and rollback are not yet exposed in the dashboard at all.
+- **No absent repo mirror is represented as apply-capable.** The update preview marks apply as available only when the baseline is the repo mirror; an installed copy is never presented as the mirror.
+- **Adaptation reviews are bounded by evidence.** Unknown or unsupported mappings block apply rather than being invented. Unverified runtime probes are labeled inferred or unknown, never documented.
 - **No universal compatibility claim.** Skill Manager reports what it can prove and labels the rest. It does not claim that every frontmatter field works in every runtime.
 
 ## LINKS

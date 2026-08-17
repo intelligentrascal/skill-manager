@@ -90,7 +90,6 @@ a <pre id="out"> and a script that fetches /api/inventory and sets textContent.
 Test your work: run `npm run scan` and verify the output has real skills (e.g. names like
 hallmark, agent-reach, headstart, grill-me should appear). Fix until it works.
 
-
 ## Compatibility engine (v1.1.0, added 2026-08-12)
 
 Knowledge-first portability: what each agent runtime actually does with a
@@ -159,7 +158,6 @@ First-class "why does agent X see skill Y": per-agent discovery resolution.
   low/medium/high, whyMayAlter) - advisory only, "remove field" flagged where
   it would change the authoring agent's behavior. No auto-apply.
 
-
 ## A+B+C tracks (added 2026-08-12, collaborative build)
 
 Three parallel tracks, divided by agent strength and cross-reviewed:
@@ -186,12 +184,11 @@ Three parallel tracks, divided by agent strength and cross-reviewed:
 - Performance: batch git status (one call vs 223 spawns) - cold load
   13.9s -> 0.57s.
 
-
 ## Canonical origin capture (ticket #2, added 2026-08-16)
 
 Evidence-backed origin assignment for skills without a managed canonical copy,
 plus the import that promotes a discovered copy into `agent-skills` and commits
-+ pushes it. This is the backend vertical slice only - the origin-led workspace
+- pushes it. This is the backend vertical slice only - the origin-led workspace
 UI is ticket #4 and is deliberately not built here.
 
 - `src/origin.ts` - the pure origin model + validation. Three assignable types
@@ -200,7 +197,7 @@ UI is ticket #4 and is deliberately not built here.
     owner/repo + a canonical clone URL.
   - `containsCredentials` rejects userinfo and token/invite query params.
   - `validateOriginInput` enforces the per-type contract: github validates repo
-    + exact `SKILL.md` subpath (revision is pinned by the import service);
+    - exact `SKILL.md` subpath (revision is pinned by the import service);
     private requires an attribution note and rejects credential-bearing URLs;
     local allows at most an ownership note and never claims an external source.
   - `reassignOrigin` is append-only: the current origin moves into history.
@@ -251,3 +248,76 @@ variants (#5/#6/#7) or the origin-led workspace (#4).
 Endpoints: `GET /api/evidence-registry`, `POST /api/evidence-registry/check`,
 `POST /api/evidence-registry/approve`. The scheduled and on-demand checks never
 activate a revision - only an explicit approve does (AC3).
+
+## Origin-led skill workspace (ticket #4, added 2026-08-16)
+
+Selecting a skill opens a provenance-led detail workspace in place of the middle
+inventory area. Desktop keeps the Fleet/Genome rail with a 60/40 two-column
+workspace; tablet and mobile switch to a full-screen stacked view with sticky
+Back navigation.
+
+- `src/githubOriginMetadata.ts` - `GithubOriginMetadataCache` (persisted under
+  `SM_CACHE_DIR`) + `createGithubRepositoryReader` (explicit network adapter).
+  Page reads serve only cached, validated facts; GitHub is contacted only via
+  `POST /api/origin/refresh`. Responses are validated against the pinned
+  repository identity (owner, repo, URL, avatar host allow-list) before caching.
+- Server: `GET /api/origin?name=` serves cached GitHub facts (null for
+  private/local/unknown), `POST /api/origin/refresh` re-verifies a public
+  origin and persists the result. Private/local/unknown never fabricate GitHub
+  identity or metadata; unknown origin makes Assign origin the primary action.
+- The workspace honors the five reviewed Mobbin reference directions (dark
+  Genome surfaces, provenance hero, evidence details, right-side agent variant
+  matrix) and was validated at desktop, tablet, and mobile widths.
+
+## Agent variant matrix (ticket #5, added 2026-08-16)
+
+- `src/variantMatrix.ts` - `buildAgentVariantMatrix` produces honest rows for
+  Pi, Claude, OpenCode, Codex with Canonical | Variant stored | Deployed |
+  Verified | Unknown states.
+  - A registered sidecar snapshot exposes a readable canonical diff (LCS-based,
+    `readableDifference`), the canonical base revision, agent-profile revision,
+    evidence level, observed runtime version, and evidence basis.
+  - Verified requires: deployed bytes match the snapshot, profile evidence is
+    not unknown, `verifyDeployedVariant` passes against current adaptation
+    constraints, the canonical base is current, and the runtime discovery
+    winner matches the snapshot path. Anything less is honestly Deployed,
+    Variant stored, or Unknown - never a failure.
+  - Unregistered sidecars are ignored (not invented into variants).
+- Server: `GET /api/variant-matrix?name=` (workspace endpoint). No manual
+  variant-edit controls; the UI names AI-assisted Adaptation Review as the
+  supported next stage.
+
+## AI-assisted Adaptation Reviews (ticket #6, added 2026-08-16)
+
+- `src/diff.ts` - shared `readableDifference` used by both the variant matrix
+  and reviews.
+- `src/adaptationReview.ts` - pure `generateAdaptationReview` over
+  (skill, baselineRevision, upstreamRevision, baselineContent, upstreamContent,
+  registry). Produces a change summary (frontmatter fields added/removed/
+  modified, body-change flag, line counts) and per-agent proposals for all four
+  agents using the active evidence-backed profiles. Each proposal carries
+  evidence (level, observed version, basis), uncertainty notes, and blocking
+  conditions. Unknown or unsupported mappings block apply; silent metadata
+  fields (license, author, version, tags, category) add uncertainty only.
+- `src/reviewCache.ts` - cache keyed by canonical revision + agent-profile
+  revision, so unchanged pairs reuse prior analysis with zero model work.
+- Server: `POST /api/adaptation-review/generate` (+ cached reads). The verified
+  apply transaction is ticket #7 and is deliberately not built here.
+
+## Verified apply to the master repository (ticket #7, added 2026-08-16)
+
+- `src/apply.ts` - `VerifiedApplyService` with an injectable git boundary for
+  testability. Strict order: STAGE (canonical SKILL.md + variant sidecars +
+  provenance manifest + analysis JSON written via `WriteTracker`) -> DEPLOY
+  (copy to each target agent discovery path) -> VERIFY (re-read deployed copy,
+  byte match + `verifyAdaptation` removed-field check) -> COMMIT (canonical,
+  variants, analysis, provenance together) -> PUSH
+  (`git push origin HEAD:refs/heads/main`).
+  - Failure before a confirmed push: `WriteTracker.restoreAll()` restores every
+    prior local copy (targets and staged working tree) and no commit/push
+    occurs (AC3).
+  - Rejected push: the verified local commit is retained (`retryable`), an
+    Attention item is written under `.skillmgr/attention/apply/`, and no rebase
+    or amend is ever attempted (AC4).
+- Server: `POST /api/adaptation-review/apply` wires the service to the
+  `agent-skills` repo root with per-agent target paths.
