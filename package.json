@@ -7,7 +7,7 @@
   "scripts": {
     "scan": "node --experimental-strip-types src/scanner.ts",
     "serve": "node --experimental-strip-types src/server.ts",
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test": "node --experimental-strip-types --test --test-timeout=120000 test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

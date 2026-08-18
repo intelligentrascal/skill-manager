@@ -1,53 +1,31 @@
 import assert from "node:assert/strict";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { parseManifest } from "../src/manifest.ts";
 import test from "node:test";
+import { listen, reservePort, stopChild, waitForServer } from "./workspaceServer.ts";
 
 const SKILL = "---\nname: public-skill\ndescription: Public test skill.\n---\n\nTest.\n";
 
-async function listen(server: ReturnType<typeof createServer>): Promise<number> {
-	return await new Promise((resolve, reject) => {
-		server.once("error", reject);
-		server.listen(0, "127.0.0.1", () => {
-			const address = server.address();
-			if (!address || typeof address === "string") reject(new Error("missing test port"));
-			else resolve(address.port);
-		});
-	});
+function git(cwd: string, args: string[]): string {
+	return execFileSync("git", args, { cwd, encoding: "utf-8" }).trim();
 }
 
-async function reservePort(): Promise<number> {
-	const server = createServer();
-	const port = await listen(server);
-	await new Promise<void>((resolve) => server.close(() => resolve()));
-	return port;
+function initRepo(root: string, remote: string): void {
+	mkdirSync(root, { recursive: true });
+	git(root, ["init", "--initial-branch=main"]);
+	git(root, ["config", "user.email", "test@example.com"]);
+	git(root, ["config", "user.name", "Test"]);
+	git(root, ["remote", "add", "origin", remote]);
 }
 
-async function waitForServer(url: string, child: ChildProcess, logs: () => string): Promise<void> {
-	const deadline = Date.now() + 8_000;
-	while (Date.now() < deadline) {
-		if (child.exitCode !== null) {
-			throw new Error(`server exited before readiness\n${logs()}`);
-		}
-		try {
-			const response = await fetch(url);
-			if (response.ok) return;
-		} catch {}
-		await new Promise((resolve) => setTimeout(resolve, 50));
-	}
-	throw new Error(`server did not become ready\n${logs()}`);
-}
-
-async function stopChild(child: ChildProcess): Promise<void> {
-	if (child.exitCode !== null) return;
-	child.kill();
-	await Promise.race([
-		new Promise<void>((resolve) => child.once("exit", () => resolve())),
-		new Promise<void>((resolve) => setTimeout(resolve, 2_000)),
-	]);
+function initBare(remote: string): void {
+	mkdirSync(remote, { recursive: true });
+	git(remote, ["init", "--bare", "--initial-branch=main"]);
 }
 
 test("origin HTTP API reads cached GitHub facts and refreshes only on explicit POST", async () => {
@@ -120,6 +98,8 @@ skills:
 		["--experimental-strip-types", "src/server.ts"],
 		{
 			cwd: process.cwd(),
+			// POSIX process-group leader so killTree can SIGKILL the whole tree.
+			detached: process.platform !== "win32",
 			env: {
 				...process.env,
 				SM_PORT: String(appPort),
@@ -188,6 +168,110 @@ skills:
 	} finally {
 		await stopChild(child);
 		await new Promise<void>((resolve) => github.close(() => resolve()));
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("HTTP assignment flow previews, assigns, commits, and pushes with the verified name recorded", async () => {
+	const root = mkdtempSync(join(tmpdir(), "skill-manager-origin-assign-flow-"));
+	const remote = join(root, "remote.git");
+	const repo = join(root, "agent-skills");
+	const repoSkills = join(repo, "skills");
+	const skillDir = join(repoSkills, "misc", "public-skill");
+	let child: ChildProcess | undefined;
+	try {
+		initBare(remote);
+		initRepo(repo, remote);
+		mkdirSync(skillDir, { recursive: true });
+		writeFileSync(join(skillDir, "SKILL.md"), SKILL);
+		git(repo, ["add", "."]);
+		git(repo, ["commit", "-m", "base"]);
+		git(repo, ["push", "-u", "origin", "main"]);
+		writeFileSync(join(repo, "skillmgr.yaml"), "version: 1\nskills:\n  public-skill:\n    provenance: mine\n");
+
+		const appPort = await reservePort();
+		const empty = join(root, "empty");
+		mkdirSync(empty, { recursive: true });
+		let output = "";
+		child = spawn(
+			process.execPath,
+			["--experimental-strip-types", "src/server.ts"],
+			{
+				cwd: process.cwd(),
+				// POSIX process-group leader so killTree can SIGKILL the whole tree.
+				detached: process.platform !== "win32",
+				env: {
+					...process.env,
+					SM_PORT: String(appPort),
+					SM_PI_SKILLS: empty,
+					SM_OPENCODE_SKILLS: empty,
+					SM_CLAUDE_SKILLS: empty,
+					SM_SHARED_SKILLS: empty,
+					SM_REPO_SKILLS: repoSkills,
+					SM_CACHE_DIR: join(root, "cache"),
+				},
+				stdio: ["ignore", "pipe", "pipe"],
+			},
+		);
+		child.stdout?.on("data", (chunk) => { output += String(chunk); });
+		child.stderr?.on("data", (chunk) => { output += String(chunk); });
+		const base = `http://127.0.0.1:${appPort}`;
+
+		await waitForServer(`${base}/`, child, () => output);
+
+		// A local-assignment preview is still gated on a reason (enforcement).
+		const gated = await fetch(`${base}/api/origin/preview`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				name: "public-skill",
+				origin: { type: "local" },
+			}),
+		});
+		assert.equal(gated.status, 409);
+
+		// The full flow: preview then assign (which commits and pushes).
+		const previewResponse = await fetch(`${base}/api/origin/preview`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				name: "public-skill",
+				category: "misc",
+				origin: { type: "local", reason: "I wrote this", ownershipNote: "scratch" },
+				sourcePath: join(repoSkills, "misc", "public-skill", "SKILL.md"),
+			}),
+		});
+		assert.equal(previewResponse.status, 200);
+		const preview = await previewResponse.json();
+		assert.equal(preview.contentSha.length, 64);
+		assert.equal(preview.provenance, "mine");
+
+		const assignResponse = await fetch(`${base}/api/origin/assign`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				name: "public-skill",
+				category: "misc",
+				origin: { type: "local", reason: "I wrote this", ownershipNote: "scratch" },
+				expectedContentSha: preview.contentSha,
+				sourcePath: join(repoSkills, "misc", "public-skill", "SKILL.md"),
+			}),
+		});
+		assert.equal(assignResponse.status, 200);
+		const result = await assignResponse.json();
+		assert.equal(result.committed, true);
+		assert.equal(result.pushed, true);
+		assert.ok(result.commitSha);
+
+		// The remote received the commit and the manifest carries the origin.
+		assert.equal(git(remote, ["rev-parse", "main"]), result.commitSha);
+		const manifest = parseManifest(
+			readFileSync(join(repo, "skillmgr.yaml"), "utf8"),
+		);
+		assert.equal(manifest.skills["public-skill"].origin!.current.type, "local");
+		assert.equal(manifest.skills["public-skill"].origin!.current.reason, "I wrote this");
+	} finally {
+		if (child !== undefined) await stopChild(child);
 		rmSync(root, { recursive: true, force: true });
 	}
 });

@@ -1,53 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { reservePort, stopChild, waitForServer } from "./workspaceServer.ts";
 
 const CANONICAL = "---\nname: review\ndescription: Review changes.\nuser-invocable: true\n---\n\nReview.\n";
 const PI_VARIANT = "---\nname: review\ndescription: Review changes.\n---\n\nReview.\n";
-
-async function listen(server: ReturnType<typeof createServer>): Promise<number> {
-	return await new Promise((resolve, reject) => {
-		server.once("error", reject);
-		server.listen(0, "127.0.0.1", () => {
-			const address = server.address();
-			if (!address || typeof address === "string") reject(new Error("missing test port"));
-			else resolve(address.port);
-		});
-	});
-}
-
-async function reservePort(): Promise<number> {
-	const server = createServer();
-	const port = await listen(server);
-	await new Promise<void>((resolve) => server.close(() => resolve()));
-	return port;
-}
-
-async function waitForServer(url: string, child: ChildProcess, logs: () => string): Promise<void> {
-	const deadline = Date.now() + 8_000;
-	while (Date.now() < deadline) {
-		if (child.exitCode !== null) throw new Error(`server exited before readiness\n${logs()}`);
-		try {
-			const response = await fetch(url);
-			if (response.ok) return;
-		} catch {}
-		await new Promise((resolve) => setTimeout(resolve, 50));
-	}
-	throw new Error(`server did not become ready\n${logs()}`);
-}
-
-async function stopChild(child: ChildProcess): Promise<void> {
-	if (child.exitCode !== null) return;
-	child.kill();
-	await Promise.race([
-		new Promise<void>((resolve) => child.once("exit", () => resolve())),
-		new Promise<void>((resolve) => setTimeout(resolve, 2_000)),
-	]);
-}
 
 test("variant matrix HTTP API returns honest status, diff, and evidence without machine paths", async () => {
 	const root = mkdtempSync(join(tmpdir(), "skill-manager-variant-workspace-"));
@@ -72,6 +32,8 @@ test("variant matrix HTTP API returns honest status, diff, and evidence without 
 	let output = "";
 	const child = spawn(process.execPath, ["--experimental-strip-types", "src/server.ts"], {
 		cwd: process.cwd(),
+		// POSIX process-group leader so killTree can SIGKILL the whole tree.
+		detached: process.platform !== "win32",
 		env: {
 			...process.env,
 			HOME: root,

@@ -35,7 +35,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { SCAN_LOCATIONS, type ScanLocation } from "./config.ts";
-import { walkForSkills } from "./scanner.ts";
+import { parseFrontmatter, walkForSkills } from "./scanner.ts";
 import {
 	newManifestWithEntry,
 	parseManifest,
@@ -75,6 +75,9 @@ export interface ImportPreview {
 	contentBytes: number;
 	content: string;
 	provenance: "upstream" | "mine";
+	/** Verified skill name for a github origin (frontmatter `name` first,
+	 * owner/repo-derived fallback). The manifest key is never renamed. */
+	canonicalName?: string;
 	identity?: SkillIdentity;
 	origin: OriginAssignment;
 	pinnedRevision?: string;
@@ -116,6 +119,7 @@ interface ResolvedContent {
 interface ResolvedPlan {
 	assignment: OriginAssignment;
 	resolved: ResolvedContent;
+	canonicalName?: string;
 	identity?: SkillIdentity;
 	pinnedRevision?: string;
 }
@@ -212,6 +216,22 @@ function readExistingManifest(repoRoot: string): {
 	return { text, manifest: parseManifest(text) };
 }
 
+/**
+ * The verified skill name for a GitHub origin. The imported SKILL.md frontmatter
+ * `name` is the authoritative skill name; when it is absent or empty, derive one
+ * from the verified owner/repo facts (the repository name) so the record always
+ * carries a name backed by the verified GitHub origin.
+ */
+export function verifiedSkillName(
+	content: string,
+	ref: { owner: string; repo: string },
+): string {
+	const frontmatter = parseFrontmatter(content);
+	const name = frontmatter["name"];
+	if (typeof name === "string" && name.trim() !== "") return name.trim();
+	return ref.repo;
+}
+
 export class OriginImportService {
 	private readonly fetcher: GithubFetcher;
 	private readonly scanLocations: ScanLocation[];
@@ -299,6 +319,13 @@ export class OriginImportService {
 		);
 		const record: SkillRecord = {
 			provenance: provenanceForOrigin(plan.assignment),
+			// The verified github skill name is recorded as canonicalName; the
+			// record key stays the stable local name so cross-references and
+			// provenance history are never broken. A non-github reassignment
+			// keeps a previously verified name rather than silently dropping it.
+			...(plan.canonicalName ?? existingRecord?.canonicalName
+				? { canonicalName: plan.canonicalName ?? existingRecord?.canonicalName }
+				: {}),
 			...(plan.identity ? { identity: plan.identity } : {}),
 			origin: originRecord,
 			...(existingRecord?.variants ? { variants: existingRecord.variants } : {}),
@@ -359,6 +386,7 @@ export class OriginImportService {
 		}
 		const assignment = validation.assignment;
 		let resolved: ResolvedContent;
+		let canonicalName: string | undefined;
 		let identity: SkillIdentity | undefined;
 		let pinnedRevision: string | undefined;
 		if (validation.github) {
@@ -371,6 +399,7 @@ export class OriginImportService {
 				subpath,
 			);
 			resolved = this.bufferContent(content);
+			canonicalName = verifiedSkillName(content, ref);
 			identity = {
 				upstreamUrl: ref.cloneUrl,
 				subpath,
@@ -380,7 +409,7 @@ export class OriginImportService {
 		} else {
 			resolved = this.resolveLocalContent(request, skillName, repoRoot);
 		}
-		return { assignment, resolved, identity, pinnedRevision };
+		return { assignment, resolved, canonicalName, identity, pinnedRevision };
 	}
 
 	private describe(
@@ -406,6 +435,7 @@ export class OriginImportService {
 			contentBytes: plan.resolved.bytes,
 			content: plan.resolved.content,
 			provenance: provenanceForOrigin(plan.assignment),
+			...(plan.canonicalName ? { canonicalName: plan.canonicalName } : {}),
 			identity: plan.identity,
 			origin: plan.assignment,
 			pinnedRevision: plan.pinnedRevision,

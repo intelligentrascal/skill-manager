@@ -25,8 +25,12 @@ export interface OriginAssignment {
 	type: OriginType;
 	/** ISO timestamp of the assignment (set by the app, never the client). */
 	at: string;
-	/** Why this origin was assigned. Required for every assignment. */
-	reason: string;
+	/**
+	 * Why this origin was assigned. Required for private and local assignments.
+	 * Optional for a verified public GitHub origin (the URL is the evidence);
+	 * when absent it is omitted from the manifest record.
+	 */
+	reason?: string;
 	/** Required for private/community origins. */
 	attribution?: string;
 	/** Optional note for mine/local origins. */
@@ -196,6 +200,11 @@ function hasLineBreak(value: unknown): boolean {
  * returned assignment carries only the fields its type is allowed to claim:
  * GitHub never keeps an inline URL (that lives in the identity), and
  * private/local never claim GitHub facts.
+ *
+ * The reason requirement is type-dependent: a verified public GitHub origin is
+ * one-step and low-friction, so `reason` is optional there (the URL is the
+ * evidence). Private and local origins keep their attribution/ownership
+ * requirements, and both still require a single-line reason.
  */
 export function validateOriginInput(
 	input: OriginInput,
@@ -213,9 +222,7 @@ export function validateOriginInput(
 			`origin type must be one of github, private, local (got ${input.type})`,
 		);
 	}
-	if (!nonEmpty(input.reason)) {
-		errors.push("a reason for the origin assignment is required");
-	}
+	const reasonProvided = nonEmpty(input.reason);
 	if (hasLineBreak(input.reason)) {
 		errors.push("reason must be a single line");
 	}
@@ -227,7 +234,7 @@ export function validateOriginInput(
 	const base: OriginAssignment = {
 		type: input.type as OriginType,
 		at,
-		reason: input.reason.trim(),
+		...(reasonProvided ? { reason: input.reason.trim() } : {}),
 	};
 
 	if (input.type === "github") {
@@ -256,6 +263,9 @@ export function validateOriginInput(
 	}
 
 	if (input.type === "private") {
+		if (!reasonProvided) {
+			errors.push("a reason for the origin assignment is required");
+		}
 		if (!nonEmpty(input.attribution)) {
 			errors.push("a private/community origin requires an attribution note");
 		}
@@ -284,6 +294,9 @@ export function validateOriginInput(
 	}
 
 	// local
+	if (!reasonProvided) {
+		errors.push("a reason for the origin assignment is required");
+	}
 	if (input.url !== undefined || input.subpath !== undefined) {
 		errors.push("a local origin must not claim an external source URL");
 	}

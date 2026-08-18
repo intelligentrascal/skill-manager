@@ -33,6 +33,9 @@ export interface SecurityReview {
 
 export interface SkillRecord {
 	provenance: Provenance;
+	/** Verified skill name for a GitHub origin (from the imported SKILL.md
+	 * frontmatter `name`), while the record key stays the stable local name. */
+	canonicalName?: string;
 	identity?: SkillIdentity;
 	origin?: OriginRecord;
 	variants?: SkillVariant[];
@@ -260,8 +263,10 @@ function parseOriginAssignment(
 	const assignment: OriginAssignment = {
 		type,
 		at,
-		reason: expectString(object.reason, `${path}.reason`),
 	};
+	if (object.reason !== undefined) {
+		assignment.reason = expectString(object.reason, `${path}.reason`);
+	}
 	if (object.attribution !== undefined) {
 		assignment.attribution = expectString(
 			object.attribution,
@@ -316,7 +321,14 @@ export function parseManifest(text: string): SkillManagerManifest {
 		const record = expectObject(rawRecord, `skills.${name}`);
 		rejectUnknown(
 			record,
-			["provenance", "identity", "origin", "variants", "securityReview"],
+			[
+				"provenance",
+				"canonicalName",
+				"identity",
+				"origin",
+				"variants",
+				"securityReview",
+			],
 			`skills.${name}`,
 		);
 		const provenance = expectString(
@@ -327,6 +339,13 @@ export function parseManifest(text: string): SkillManagerManifest {
 			!["upstream", "upstream-edited", "mine", "promoted"].includes(provenance)
 		) {
 			throw new ManifestValidationError(`skills.${name}.provenance is invalid`);
+		}
+		let canonicalName: string | undefined;
+		if (record.canonicalName !== undefined) {
+			canonicalName = expectString(
+				record.canonicalName,
+				`skills.${name}.canonicalName`,
+			);
 		}
 		let identity: SkillIdentity | undefined;
 		if (record.identity !== undefined) {
@@ -456,6 +475,7 @@ export function parseManifest(text: string): SkillManagerManifest {
 		}
 		records[name] = {
 			provenance,
+			...(canonicalName ? { canonicalName } : {}),
 			...(identity ? { identity } : {}),
 			...(origin ? { origin } : {}),
 			...(variants ? { variants } : {}),
@@ -498,8 +518,10 @@ function originAssignmentLines(assignment: OriginAssignment): string[] {
 	const lines = [
 		`type: ${assignment.type}`,
 		`at: ${yamlString(assignment.at)}`,
-		`reason: ${yamlString(assignment.reason)}`,
 	];
+	if (assignment.reason !== undefined) {
+		lines.push(`reason: ${yamlString(assignment.reason)}`);
+	}
 	if (assignment.attribution !== undefined) {
 		lines.push(`attribution: ${yamlString(assignment.attribution)}`);
 	}
@@ -525,6 +547,9 @@ export function serializeSkillEntry(
 ): string {
 	const lines: string[] = [`  ${name}:`];
 	lines.push(`    provenance: ${record.provenance}`);
+	if (record.canonicalName !== undefined) {
+		lines.push(`    canonicalName: ${yamlString(record.canonicalName)}`);
+	}
 	if (record.identity) {
 		lines.push("    identity:");
 		lines.push(`      upstreamUrl: ${yamlString(record.identity.upstreamUrl)}`);
@@ -569,22 +594,32 @@ export function serializeSkillEntry(
 	return lines.join("\n");
 }
 
+/** The dominant line-ending style of a manifest (CRLF when it wins, else LF). */
+function detectEol(text: string): string {
+	const crlf = (text.match(/\r\n/g) ?? []).length;
+	const loneLf = (text.match(/(?<!\r)\n/g) ?? []).length;
+	return crlf >= loneLf ? "\r\n" : "\n";
+}
+
 /**
  * Insert or replace one skill entry in raw skillmgr.yaml text without
  * reformatting the rest of the file. Entries are matched by their exact
- * 2-space-indented `name:` line.
+ * 2-space-indented `name:` line. The existing line-ending style of the file is
+ * preserved so a single assignment changes only its own entry (no wholesale
+ * LF/CRLF conversion that rewrites every line of the manifest).
  */
 export function upsertSkillEntry(
 	manifestText: string,
 	name: string,
 	record: SkillRecord,
 ): string {
-	const block = serializeSkillEntry(name, record);
+	const eol = detectEol(manifestText);
+	const block = serializeSkillEntry(name, record).split("\n").join(eol);
 	const lines = manifestText.split(/\r?\n/);
 	const index = lines.findIndex((line) => line === `  ${name}:`);
 	if (index === -1) {
 		const trimmed = manifestText.replace(/\s+$/, "");
-		return (trimmed ? `${trimmed}\n` : "") + block + "\n";
+		return (trimmed ? `${trimmed}${eol}` : "") + block + eol;
 	}
 	let end = index + 1;
 	while (end < lines.length) {
@@ -597,10 +632,10 @@ export function upsertSkillEntry(
 		if (indent < 4) break;
 		end++;
 	}
-	const before = lines.slice(0, index).join("\n");
-	const after = lines.slice(end).join("\n");
+	const before = lines.slice(0, index).join(eol);
+	const after = lines.slice(end).join(eol);
 	const parts = [before, block, after].filter((part) => part !== "");
-	return parts.join("\n") + "\n";
+	return parts.join(eol) + eol;
 }
 
 /** Create a minimal new manifest containing a single skill entry. */
