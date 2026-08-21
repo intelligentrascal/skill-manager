@@ -129,6 +129,27 @@ function revisionFor(root: string): Promise<string> {
 export class GitUpstreamUpdateService implements UpstreamUpdateService {
 	private readonly roots = new WeakMap<SkillSnapshot, string>();
 	private readonly temporaryRoots = new Set<string>();
+	/**
+	 * Resolve the current upstream HEAD of the default branch (ref listing
+	 * only - no content is fetched). Used by the freshness check to detect
+	 * "upstream moved past the pinned revision" without guessing a frontmatter
+	 * HEAD. Throws an UpdateError when the remote is unreachable.
+	 */
+	async resolveHead(url: string): Promise<string> {
+		try {
+			const { stdout } = await execFile("git", ["ls-remote", url, "HEAD"]);
+			const sha = String(stdout).split(/\s+/)[0]?.trim();
+			if (!sha) {
+				throw new UpdateError(`No HEAD advertised by ${url}`);
+			}
+			return sha;
+		} catch (error) {
+			throw new UpdateError(
+				`Unable to resolve upstream HEAD for ${url}: ${error instanceof Error ? error.message : "unknown git error"}`,
+			);
+		}
+	}
+
 
 	async fetchSnapshot(source: UpstreamSource, revision: string): Promise<SkillSnapshot> {
 		const checkout = mkdtempSync(join(tmpdir(), "skill-manager-upstream-"));

@@ -3754,7 +3754,13 @@
         const repoCopy = d.copies.find((copy) => copy.location === "repo");
         if (statusOf(name) === "drift" && repoCopy) {
           const syncRow = el("div", "meta");
-          const syncButton = el("button", "chip", "Preview sync from repo");
+          // The label names the source repo explicitly - never a bare,
+          // repo-less label that leaves the user guessing (issue #9).
+          const syncButton = el(
+            "button",
+            "chip",
+            "Preview sync from agent-skills repo copy",
+          );
           syncButton.addEventListener("click", async () => {
             syncButton.disabled = true;
             syncButton.textContent = "Loading preview...";
@@ -3807,7 +3813,261 @@
           actionBody.appendChild(row);
           hasActions = true;
         }
+
+        // freshness check + in-pane update path (issue #9): only for a
+        // verified public GitHub origin. The check pulls upstream on demand
+        // and reports honestly (up to date / update available / drifted /
+        // unreachable); the update path (review -> verified apply vs the
+        // pinned revision, or an explicit re-pin) is surfaced only when the
+        // report is actionable, and apply always requires preview +
+        // confirmation. No origin -> no action, and no fetch is attempted.
+        if (origin.state === "github" && origin.identity) {
+          const freshnessRow = el("div", "meta");
+          const freshnessBtn = el("button", "chip", "Check freshness");
+          freshnessBtn.type = "button";
+          freshnessBtn.addEventListener("click", () => {
+            freshnessBtn.disabled = true;
+            freshnessBtn.textContent = "Checking...";
+            fetch("/api/freshness?name=" + encodeURIComponent(name))
+              .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+              .then(({ ok, data }) => {
+                freshnessBtn.remove();
+                if (!ok) {
+                  const err = el("div", "meta");
+                  err.appendChild(
+                    document.createTextNode(
+                      data.error || "Freshness check failed.",
+                    ),
+                  );
+                  actionBody.appendChild(err);
+                  return;
+                }
+                renderFreshnessReport(data, actionBody, name);
+              })
+              .catch((error) => {
+                freshnessBtn.disabled = false;
+                freshnessBtn.textContent = "Check failed";
+                showToast(
+                  error instanceof Error
+                    ? error.message
+                    : "Freshness check failed.",
+                );
+              });
+          });
+          freshnessRow.appendChild(freshnessBtn);
+          actionBody.appendChild(freshnessRow);
+          hasActions = true;
+        }
         if (!hasActions) actionPanel.section.remove();
+      }
+
+      // Per-skill freshness report (issue #9): honest upstream state, never
+      // silent. The update path is offered only when the report is actionable
+      // (update available or drifted) and apply always requires preview +
+      // confirmation. Unreachable is reported with the error surfaced and is
+      // never claimed to be up to date.
+      function renderFreshnessReport(report, mount, skillName) {
+        const panel = el("section", "sync-preview");
+        const title =
+          report.state === "up-to-date"
+            ? "Up to date"
+            : report.state === "update-available"
+              ? "Update available"
+              : report.state === "drifted"
+                ? "Drifted"
+                : "Unreachable";
+        panel.appendChild(el("h3", "", title));
+        if (report.state === "unreachable") {
+          panel.appendChild(
+            el(
+              "p",
+              "",
+              (report.error || "Upstream could not be reached.") +
+                " The skill state is unknown - it is not assumed to be up to date.",
+            ),
+          );
+          mount.appendChild(panel);
+          return;
+        }
+        const source = report.sourceRepo ? " from " + report.sourceRepo : "";
+        const shortPin = (report.pinnedRevision || "").slice(0, 10);
+        if (report.state === "update-available") {
+          panel.appendChild(
+            el(
+              "p",
+              "",
+              "Upstream" +
+                source +
+                " has advanced past the pinned revision (" +
+                shortPin +
+                "). Re-pin to the resolved upstream HEAD, then preview the update before applying.",
+            ),
+          );
+          const actions = el("div", "sync-actions");
+          const repin = el(
+            "button",
+            "chip",
+            "Re-pin to " + (report.upstreamHead || "HEAD").slice(0, 10),
+          );
+          repin.type = "button";
+          repin.addEventListener("click", () =>
+            repinToUpstream(skillName, report.upstreamHead, mount),
+          );
+          const preview = el("button", "chip", "Preview update");
+          preview.type = "button";
+          preview.addEventListener("click", () =>
+            runUpdatePath(skillName, mount),
+          );
+          actions.append(repin, preview);
+          panel.appendChild(actions);
+        } else if (report.state === "drifted") {
+          panel.appendChild(
+            el(
+              "p",
+              "",
+              "The local repo copy differs from the pinned revision (" +
+                shortPin +
+                "). Preview the update to bring the canonical copy back to the pin, then confirm apply.",
+            ),
+          );
+          const actions = el("div", "sync-actions");
+          const preview = el("button", "chip", "Preview update");
+          preview.type = "button";
+          preview.addEventListener("click", () =>
+            runUpdatePath(skillName, mount),
+          );
+          actions.appendChild(preview);
+          panel.appendChild(actions);
+        } else {
+          panel.appendChild(
+            el(
+              "p",
+              "",
+              "The local repo copy matches the pinned revision and upstream HEAD has not moved.",
+            ),
+          );
+        }
+        mount.appendChild(panel);
+      }
+
+      // Issue #9: the in-pane update path. Runs the existing #6 review
+      // (baseline = current repo copy, incoming = the pinned revision) and
+      // only after an explicit confirmation posts the reviewed analysis to
+      // the #7 verified apply (stage -> deploy -> verify -> commit -> push).
+      // Reviewing never applies anything.
+      function runUpdatePath(skillName, mount) {
+        const loader = el(
+          "div",
+          "variant-intro",
+          "Generating Adaptation Review...",
+        );
+        mount.appendChild(loader);
+        fetch("/api/adaptation-review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: skillName }),
+        })
+          .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+          .then(({ ok, data }) => {
+            loader.remove();
+            if (!ok) {
+              const err = el("div", "adapt-blocking");
+              err.appendChild(
+                document.createTextNode(
+                  data.error || "Adaptation review unavailable.",
+                ),
+              );
+              mount.appendChild(err);
+              return;
+            }
+            renderAdaptationReview(data, mount);
+            const applyRow = el("div", "sync-actions");
+            const applyBtn = el("button", "sync-confirm", "Apply after review");
+            applyBtn.type = "button";
+            applyBtn.addEventListener("click", () =>
+              applyReviewedUpdate(skillName, data, applyBtn),
+            );
+            applyRow.appendChild(applyBtn);
+            mount.appendChild(applyRow);
+          })
+          .catch((error) => {
+            loader.remove();
+            const err = el("div", "adapt-blocking");
+            err.appendChild(
+              document.createTextNode(
+                error instanceof Error
+                  ? error.message
+                  : "Adaptation review failed.",
+              ),
+            );
+            mount.appendChild(err);
+          });
+      }
+
+      // The apply is never automatic: it runs only inside this explicit
+      // confirm handler, after the user has seen the preview.
+      function applyReviewedUpdate(skillName, review, button) {
+        const approval = window.confirm(
+          "Apply the reviewed upstream revision to the canonical repo copy and verified agent copies? This stages, deploys, verifies, commits, and pushes.",
+        );
+        if (!approval) return;
+        button.disabled = true;
+        button.textContent = "Applying...";
+        fetch("/api/adaptation-review/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: skillName, review }),
+        })
+          .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+          .then(async ({ ok, data }) => {
+            if (!ok) {
+              button.disabled = false;
+              button.textContent = "Apply after review";
+              showToast(data.error || "Apply failed.");
+              return;
+            }
+            showToast(data.pushed ? "Applied and pushed" : "Applied locally");
+            await load();
+            await openSkill(skillName);
+          })
+          .catch((error) => {
+            button.disabled = false;
+            button.textContent = "Apply after review";
+            showToast(error instanceof Error ? error.message : "Apply failed.");
+          });
+      }
+
+      // Advancing the pinned revision is an explicit user action (issue #9):
+      // review/apply then run against the newly pinned revision. The target
+      // is the upstream HEAD the freshness report resolved - never guessed.
+      function repinToUpstream(skillName, head, mount) {
+        if (!head) return;
+        const approval = window.confirm(
+          "Re-pin this skill's origin to upstream HEAD " +
+            head.slice(0, 10) +
+            "? The update path will then review and apply against this new revision.",
+        );
+        if (!approval) return;
+        fetch("/api/origin/re-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: skillName, revision: head }),
+        })
+          .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+          .then(async ({ ok, data }) => {
+            if (!ok) {
+              showToast(data.error || "Re-pin failed.");
+              return;
+            }
+            showToast("Re-pinned to " + head.slice(0, 10));
+            await load();
+            await openSkill(skillName);
+          })
+          .catch((error) => {
+            showToast(
+              error instanceof Error ? error.message : "Re-pin failed.",
+            );
+          });
       }
 
       function showToast(message) {
@@ -3819,7 +4079,11 @@
 
       function renderSyncPreview(preview, body) {
         const panel = el("section", "sync-preview");
-        panel.appendChild(el("h3", "", "Sync from repo"));
+        // The panel title names the source repo explicitly (issue #9) -
+        // never a bare repo-less title that leaves the user guessing.
+        panel.appendChild(
+          el("h3", "", "Preview sync from agent-skills repo copy"),
+        );
         panel.appendChild(
           el(
             "p",

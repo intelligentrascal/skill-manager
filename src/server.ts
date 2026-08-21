@@ -3,7 +3,7 @@ import {
 	type IncomingMessage,
 	type ServerResponse,
 } from "node:http";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,8 +18,13 @@ import {
 } from "./variantStore.ts";
 import { adaptSkill } from "./variant.ts";
 import { repoRoot } from "./config.ts";
-import { readManifestSync } from "./manifest.ts";
+import {
+	readManifestSync,
+	upsertSkillEntry,
+	type SkillIdentity,
+} from "./manifest.ts";
 import { GitUpstreamUpdateService } from "./updates.ts";
+import { FreshnessService } from "./freshness.ts";
 import { resolveExplain } from "./discovery.ts";
 import { DISCOVERY_PROFILES } from "./discoveryProfiles.ts";
 import { buildHealthActions } from "./health.ts";
@@ -184,6 +189,26 @@ function originDetails(name: string) {
 		}
 	}
 	return { summary, metadata };
+}
+
+/**
+ * The freshness/update gate: a verified PUBLIC GitHub origin = a manifest
+ * identity (upstreamUrl + subpath + pinnedRevision) on a record whose CURRENT
+ * origin is github. Private/local/unknown origins never qualify - no
+ * freshness, no re-pin, no upstream fetch.
+ */
+function verifiedGithubIdentity(name: string): SkillIdentity | null {
+	let manifest;
+	try {
+		manifest = loadRepoManifest();
+	} catch {
+		manifest = null;
+	}
+	const record = manifest?.skills?.[name];
+	const identity = record?.identity;
+	const origin = record?.origin;
+	if (!identity || !origin || origin.current.type !== "github") return null;
+	return identity;
 }
 
 /**
@@ -1165,6 +1190,165 @@ const server = createServer(
 				res.end(
 					JSON.stringify({
 						error: err instanceof Error ? err.message : "update preview failed",
+					}),
+				);
+			}
+			return;
+		}
+
+		if (req.method === "GET" && url.pathname === "/api/freshness") {
+			// Manual freshness check (issue #9): for a skill with a verified
+			// public GitHub origin, pull the current upstream state on demand and
+			// report honestly (up to date / update available / drifted /
+			// unreachable) - never silently. Gated on the manifest identity;
+			// a skill without one gets a clean 404 and no fetch is attempted.
+			const name = url.searchParams.get("name");
+			if (!name) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Missing ?name parameter" }));
+				return;
+			}
+			const identity = verifiedGithubIdentity(name);
+			if (!identity) {
+				res.writeHead(404, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							"No verified public GitHub origin for this skill - freshness is unavailable.",
+						name,
+						available: false,
+					}),
+				);
+				return;
+			}
+			const inv = getInventory();
+			const repoCopy = (inv.byName[name] ?? []).find(
+				(copy) => copy.location === "repo",
+			);
+			if (!repoCopy) {
+				res.writeHead(409, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							"No repo copy of this skill to compare against the pinned revision.",
+						name,
+					}),
+				);
+				return;
+			}
+			const service = new GitUpstreamUpdateService();
+			try {
+				const report = await new FreshnessService(service).check({
+					skill: name,
+					source: {
+						url: identity.upstreamUrl,
+						subpath: identity.subpath,
+						pinnedRevision: identity.pinnedRevision,
+					},
+					localSkillDir: dirname(repoCopy.path),
+				});
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(report));
+			} catch (error) {
+				res.writeHead(500, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error
+								? error.message
+								: "Freshness check failed.",
+						name,
+					}),
+				);
+			} finally {
+				service.dispose();
+			}
+			return;
+		}
+
+		if (req.method === "POST" && url.pathname === "/api/origin/re-pin") {
+			// Explicit re-pin (issue #9): advancing the pinned revision is an
+			// explicit user action, never an automatic consequence of an
+			// "update available" report. The target must equal the resolved
+			// upstream HEAD (no HEAD-guessing, no arbitrary revision strings);
+			// when the upstream is unreachable the re-pin is refused.
+			try {
+				const body = (await readJsonBody(req)) as Record<
+					string,
+					unknown
+				> | null;
+				const name = body?.name;
+				const revision = body?.revision;
+				if (typeof name !== "string" || !name.trim()) {
+					throw new SyncError("Re-pin requests need a skill name.");
+				}
+				if (typeof revision !== "string" || !revision.trim()) {
+					throw new SyncError("Re-pin requests need the target revision.");
+				}
+				const identity = verifiedGithubIdentity(name);
+				if (!identity) {
+					res.writeHead(409, { "Content-Type": "application/json" });
+					res.end(
+						JSON.stringify({
+							error:
+								"Only a verified public GitHub origin can re-pin.",
+							name,
+						}),
+					);
+					return;
+				}
+				const service = new GitUpstreamUpdateService();
+				let head: string;
+				try {
+					head = await service.resolveHead(identity.upstreamUrl);
+				} catch (error) {
+					res.writeHead(502, { "Content-Type": "application/json" });
+					res.end(
+						JSON.stringify({
+							error: `Upstream unreachable - cannot verify the re-pin target: ${error instanceof Error ? error.message : String(error)}`,
+							name,
+						}),
+					);
+					return;
+				} finally {
+					service.dispose();
+				}
+				if (head !== revision) {
+					res.writeHead(409, { "Content-Type": "application/json" });
+					res.end(
+						JSON.stringify({
+							error: `Re-pin must target the resolved upstream HEAD (${head}); refusing to pin ${revision}.`,
+							name,
+						}),
+					);
+					return;
+				}
+				const manifestPath = join(repoRoot(), "skillmgr.yaml");
+				let text: string;
+				try {
+					text = readFileSync(manifestPath, "utf-8");
+				} catch {
+					throw new SyncError(
+						"skillmgr.yaml is missing - cannot re-pin.",
+					);
+				}
+				const record = loadRepoManifest()?.skills?.[name];
+				if (!record || !record.identity) {
+					throw new SyncError(`No manifest identity for '${name}'.`);
+				}
+				const next = {
+					...record,
+					identity: { ...record.identity, pinnedRevision: revision },
+				};
+				writeFileSync(manifestPath, upsertSkillEntry(text, name, next));
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ name, identity: next.identity }));
+			} catch (error) {
+				res.writeHead(409, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({
+						error:
+							error instanceof Error ? error.message : "Re-pin failed.",
 					}),
 				);
 			}
