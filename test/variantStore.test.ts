@@ -93,6 +93,27 @@ test("removeVariant cleans store and deployed copy", () => {
 	}
 });
 
+test("createVariant blocks an unsupported adaptation instead of storing a guessed snapshot", () => {
+	const root = tmpRoot();
+	try {
+		// No frontmatter block - adaptSkill blocks the adaptation, so creating
+		// a variant must fail rather than store the unadapted content as if it
+		// were a real variant.
+		const bodyOnly = "# Notes\n\nNo frontmatter here.\n";
+		assert.throws(
+			() => createVariant(root, "raw", "pi", bodyOnly),
+			/cannot adapt automatically/i,
+		);
+		assert.equal(
+			existsSync(join(root, ".skillmgr", "variants", "raw")),
+			false,
+			"no sidecar snapshot may be written for a blocked adaptation",
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("variantStoreRoot nests under .skillmgr/variants", () => {
 	const root = tmpRoot();
 	try {

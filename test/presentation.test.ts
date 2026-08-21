@@ -92,6 +92,53 @@ test("agent variant matrix is honest, accessible, and stacked with the detail wo
 	assert.match(html, /\.variant-diff[\s\S]*?overflow-wrap:\s*anywhere/);
 });
 
+test("variant review button propagates the skill it was rendered for", () => {
+	const render = html.match(
+		/function renderVariantMatrix\(matrix, mount\) \{[\s\S]*?\n      \}/,
+	)?.[0];
+	assert.ok(render, "expected renderVariantMatrix function body");
+	// The click handler must send the skill the matrix was rendered for -
+	// never a bare `name` identifier (which resolves to window.name = "").
+	assert.match(
+		render,
+		/reviewAdaptation\(matrix\?\.skill/,
+		"review handler must read the skill name from the matrix",
+	);
+	assert.doesNotMatch(
+		render,
+		/reviewAdaptation\(\s*name\s*,/,
+		"review handler must not close over an undefined `name`",
+	);
+	assert.doesNotMatch(
+		render,
+		/window\.name/,
+		"review handler must not resolve the page window name",
+	);
+});
+
+test("unknown variant rows explain why and offer creation when supported", () => {
+	// Every Unknown row explains its reason instead of a bare status, and
+	// offers a create action gated on the row's createSupported flag.
+	assert.ok(
+		html.includes("Create variant"),
+		"missing create-variant affordance label",
+	);
+	assert.match(
+		html,
+		/row\.createSupported/,
+		"create affordance must be gated on row.createSupported",
+	);
+	assert.match(
+		html,
+		/row\.reason/,
+		"unknown-row explanation must render the row reason",
+	);
+	assert.ok(
+		html.includes("/api/variant"),
+		"create action must post to /api/variant",
+	);
+});
+
 test("detail workspace declares full-screen responsive Back behavior and reviewed references", () => {
 	assert.match(html, /min-height:\s*100dvh/);
 	assert.ok(html.includes('key === "Escape"'));

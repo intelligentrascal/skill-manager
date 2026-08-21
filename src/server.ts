@@ -952,7 +952,9 @@ const server = createServer(
 
 		if (req.method === "POST" && url.pathname === "/api/variant") {
 			// Create a variant for an agent from the repo copy (canonical content),
-			// stored in the sidecar store. Returns the adaptation report.
+			// stored in the sidecar store and registered in the provenance manifest
+			// so the variant matrix reflects it. Unsupported mappings are blocked,
+			// not guessed (adaptSkill.blocked).
 			let body = "";
 			for await (const chunk of req) body += chunk;
 			let payload: { name?: string; agent?: string } = {};
@@ -986,14 +988,32 @@ const server = createServer(
 			}
 			try {
 				const content = readFileSync(repoCopy.path, "utf-8");
+				const adapt = adaptSkill(content, agent as AgentId);
+				if (adapt.blocked) {
+					res.writeHead(409, { "Content-Type": "application/json" });
+					res.end(
+						JSON.stringify({
+							error: adapt.blocked,
+							blocked: true,
+							skill: name,
+							agent,
+						}),
+					);
+					return;
+				}
 				const artifact = createVariant(
 					repoRoot(),
 					name,
 					agent as AgentId,
 					content,
 				);
+				// createVariant registers the variant in the sidecar store (a
+				// variant.json next to the snapshot), which the matrix reads, so
+				// the workspace sees the new variant without touching the
+				// committed skillmgr.yaml.
+				invalidateAndRescan();
 				res.writeHead(200, { "Content-Type": "application/json" });
-				res.end(JSON.stringify(artifact));
+				res.end(JSON.stringify({ ...artifact, registered: true }));
 			} catch (err) {
 				res.writeHead(500, { "Content-Type": "application/json" });
 				res.end(
