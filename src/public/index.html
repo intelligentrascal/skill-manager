@@ -1082,6 +1082,20 @@
         font-size: 10.5px;
         line-height: 1.5;
       }
+      .variant-unknown-reason {
+        margin: 6px 0 0 35px;
+        color: var(--bad);
+        font-size: 10px;
+        line-height: 1.5;
+      }
+      .variant-create {
+        margin: 10px 0 0 35px;
+      }
+      .variant-create .chip {
+        font: 800 8.5px/1 var(--mono);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
       .variant-revision,
       .variant-evidence {
         margin: 8px 0 0 35px;
@@ -2759,6 +2773,22 @@
               article.appendChild(basis);
             }
           }
+          if (safeStatus === "Unknown" && row.reason) {
+            article.appendChild(
+              el("p", "variant-unknown-reason", "Why · " + row.reason),
+            );
+          }
+          if (row.createSupported) {
+            const create = el("div", "variant-create");
+            const createBtn = el("button", "chip", "Create variant");
+            createBtn.type = "button";
+            createBtn.setAttribute("data-create-variant", agent);
+            createBtn.addEventListener("click", () =>
+              createVariantAction(matrix?.skill || "", agent, mount),
+            );
+            create.appendChild(createBtn);
+            article.appendChild(create);
+          }
           if (row.difference && Array.isArray(row.difference.lines)) {
             const details = el("details", "variant-difference");
             details.appendChild(
@@ -2785,7 +2815,9 @@
         const next = el("div", "variant-next");
         const reviewBtn = el("button", "chip primary-action", "Review adaptation");
         reviewBtn.type = "button";
-        reviewBtn.addEventListener("click", () => reviewAdaptation(name, body));
+        reviewBtn.addEventListener("click", () =>
+          reviewAdaptation(matrix?.skill || "", body),
+        );
         next.appendChild(el("strong", "", "Next stage · "));
         next.appendChild(reviewBtn);
         body.appendChild(next);
@@ -2828,6 +2860,62 @@
             err.appendChild(
               document.createTextNode(
                 error instanceof Error ? error.message : "Adaptation review failed.",
+              ),
+            );
+            mount.appendChild(err);
+          });
+      }
+
+      // Create a variant for an agent from the workspace (ticket #10): generate
+      // the adapted snapshot from the canonical content, store + register it,
+      // then refresh the matrix so the new state is visible in place.
+      function createVariantAction(skillName, agent, mount) {
+        // Clear any stale error from a previous attempt so repeat failures do
+        // not stack duplicate .adapt-blocking messages.
+        const staleErrors = mount.querySelectorAll(".variant-create-error");
+        staleErrors.forEach((node) => node.remove());
+        const section = mount.querySelector("#variantMatrix");
+        const btn = mount.querySelector('[data-create-variant="' + agent + '"]');
+        if (btn) btn.disabled = true;
+        const loader = el("div", "variant-intro", "Creating " + agent + " variant…");
+        mount.appendChild(loader);
+        fetch("/api/variant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: skillName, agent }),
+        })
+          .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+          .then(async ({ ok, data }) => {
+            loader.remove();
+            if (btn) btn.disabled = false;
+            if (!ok) {
+              const err = el("div", "adapt-blocking variant-create-error");
+              err.appendChild(
+                document.createTextNode(data.error || "Variant creation failed."),
+              );
+              mount.appendChild(err);
+              return;
+            }
+            // Refresh the matrix so the newly stored variant is reported.
+            const fresh = await fetch(
+              "/api/variant-matrix?name=" + encodeURIComponent(skillName),
+            )
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null);
+            if (fresh && section && section.parentNode) {
+              section.parentNode.removeChild(section);
+              renderVariantMatrix(fresh, mount);
+            }
+          })
+          .catch((error) => {
+            loader.remove();
+            if (btn) btn.disabled = false;
+            const err = el("div", "adapt-blocking variant-create-error");
+            err.appendChild(
+              document.createTextNode(
+                error instanceof Error
+                  ? error.message
+                  : "Variant creation failed.",
               ),
             );
             mount.appendChild(err);

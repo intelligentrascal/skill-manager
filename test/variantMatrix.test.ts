@@ -142,6 +142,112 @@ test("an unregistered sidecar snapshot is not invented into a variant", () => {
 	}
 });
 
+test("Unknown rows explain why and offer creation when canonical content can be adapted", () => {
+	const root = mkdtempSync(join(tmpdir(), "sm-variant-matrix-reason-"));
+	try {
+		const canonicalPath = join(root, "skills", "review", "SKILL.md");
+		mkdirSync(join(canonicalPath, ".."), { recursive: true });
+		writeFileSync(
+			canonicalPath,
+			"---\nname: review\nuser-invocable: true\n---\n\nReview.\n",
+		);
+		const matrix = buildAgentVariantMatrix({
+			skill: "review",
+			copies: [{ location: "repo", path: canonicalPath, sha: "canonical-sha" }],
+			repoGitRoot: root,
+			manifestRecord: { provenance: "mine" },
+			registry: defaultRegistry(),
+			home: root,
+		});
+		for (const row of matrix.agents) {
+			assert.equal(row.status, "Unknown");
+			assert.match(row.reason ?? "", /no variant snapshot registered/i);
+			assert.equal(row.createSupported, true);
+		}
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("Unknown rows without a canonical copy explain why and never offer creation", () => {
+	const matrix = buildAgentVariantMatrix({
+		skill: "review",
+		copies: [],
+		repoGitRoot: "",
+		manifestRecord: { provenance: "mine" },
+		registry: undefined,
+		home: "",
+	});
+	for (const row of matrix.agents) {
+		assert.equal(row.status, "Unknown");
+		assert.match(row.reason ?? "", /no canonical repository copy/i);
+		assert.equal(row.createSupported, false);
+	}
+});
+
+test("Unknown rows with an unsupported adaptation mapping explain why and never offer creation", () => {
+	const root = mkdtempSync(join(tmpdir(), "sm-variant-matrix-blocked-"));
+	try {
+		const canonicalPath = join(root, "skills", "raw", "SKILL.md");
+		mkdirSync(join(canonicalPath, ".."), { recursive: true });
+		writeFileSync(canonicalPath, "# Notes\n\nNo frontmatter block.\n");
+		const matrix = buildAgentVariantMatrix({
+			skill: "raw",
+			copies: [{ location: "repo", path: canonicalPath, sha: "raw-sha" }],
+			repoGitRoot: root,
+			manifestRecord: { provenance: "mine" },
+			registry: defaultRegistry(),
+			home: root,
+		});
+		for (const row of matrix.agents) {
+			assert.equal(row.status, "Unknown");
+			assert.equal(row.createSupported, false);
+			assert.match(row.reason ?? "", /no variant snapshot registered/i);
+		}
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("a sidecar-registered snapshot is reported without a manifest entry", () => {
+	const root = mkdtempSync(join(tmpdir(), "sm-variant-matrix-sidecar-reg-"));
+	try {
+		const canonicalPath = join(root, "skills", "review", "SKILL.md");
+		const variantDir = join(root, ".skillmgr", "variants", "review", "pi");
+		const canonical = "---\nname: review\nuser-invocable: true\n---\n\nReview.\n";
+		const variant = "---\nname: review\n---\n\nReview.\n";
+		mkdirSync(join(canonicalPath, ".."), { recursive: true });
+		mkdirSync(variantDir, { recursive: true });
+		writeFileSync(canonicalPath, canonical);
+		writeFileSync(join(variantDir, "SKILL.md"), variant);
+		// The workspace create flow registers by writing variant.json into the
+		// sidecar store - the manifest has no variants entry at all.
+		writeFileSync(
+			join(variantDir, "variant.json"),
+			JSON.stringify({
+				skill: "review",
+				agent: "pi",
+				baseRevision: "abc123",
+				deployedTo: "",
+			}) + "\n",
+		);
+		const matrix = buildAgentVariantMatrix({
+			skill: "review",
+			copies: [{ location: "repo", path: canonicalPath, sha: "canonical-sha" }],
+			repoGitRoot: root,
+			manifestRecord: { provenance: "mine" },
+			registry: defaultRegistry(),
+			home: root,
+		});
+		const row = matrix.agents.find((candidate) => candidate.agent === "pi");
+		assert.equal(row?.status, "Variant stored");
+		assert.equal(row?.createSupported, false);
+		assert.deepEqual(row?.revision, { canonical: "abc123", agentProfile: "1.0.0" });
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("a registered variant with no stored snapshot stays Unknown without implying failure", () => {
 	const root = mkdtempSync(join(tmpdir(), "sm-variant-matrix-missing-"));
 	try {

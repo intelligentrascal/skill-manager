@@ -13,10 +13,13 @@ import {
 	copyFileSync,
 	rmSync,
 	existsSync,
+	readdirSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { adaptSkill, verifyAdaptation, type AdaptResult } from "./variant.ts";
 import type { AgentId } from "./compat.ts";
+import type { SkillVariant } from "./manifest.ts";
 
 export interface VariantArtifact {
 	skill: string;
@@ -40,9 +43,41 @@ export function createVariant(
 	canonicalContent: string,
 ): VariantArtifact {
 	const adapt = adaptSkill(canonicalContent, agent);
+	if (adapt.blocked) {
+		throw new Error(
+			`Cannot create a ${agent} variant of ${skill}: ${adapt.blocked}`,
+		);
+	}
 	const storePath = join(variantStoreRoot(repoGitRoot), skill, agent);
-	mkdirSync(storePath, { recursive: true });
-	writeFileSync(join(storePath, "SKILL.md"), adapt.content, "utf-8");
+	// The variant is registered by writing its registration file into the sidecar
+	// store next to the snapshot, so creation is atomic: snapshot and
+	// registration are written together and a failed write removes the whole
+	// entry. No committed skillmgr.yaml is touched, so a later git reset or
+	// checkout cannot drop the registration while the snapshot survives.
+	const baseRevision = createHash("sha256").update(canonicalContent).digest("hex");
+	try {
+		mkdirSync(storePath, { recursive: true });
+		writeFileSync(join(storePath, "SKILL.md"), adapt.content, "utf-8");
+		writeFileSync(
+			join(storePath, "variant.json"),
+			JSON.stringify(
+				{
+					skill,
+					agent,
+					baseRevision,
+					// Empty-path convention: a created-but-not-deployed variant
+					// resolves to no file (the matrix reports "Variant stored").
+					deployedTo: "",
+				},
+				null,
+				2,
+			) + "\n",
+			"utf-8",
+		);
+	} catch (error) {
+		rmSync(storePath, { recursive: true, force: true });
+		throw error;
+	}
 	return { skill, agent, storePath, adapt, verified: false };
 }
 
@@ -99,4 +134,51 @@ export function removeVariant(
 export function readVariant(storePath: string): string | null {
 	const p = join(storePath, "SKILL.md");
 	return existsSync(p) ? readFileSync(p, "utf-8") : null;
+}
+
+/**
+ * Read the sidecar-store registrations for one skill. The matrix reads these
+ * (merged with the provenance manifest) so variants created in the workspace
+ * are reported even though they never touch the committed skillmgr.yaml.
+ * Malformed or missing registration files are skipped, never invented.
+ */
+export function readVariantRegistrations(
+	repoGitRoot: string,
+	skill: string,
+): SkillVariant[] {
+	if (!repoGitRoot) return [];
+	const root = join(variantStoreRoot(repoGitRoot), skill);
+	let entries;
+	try {
+		entries = readdirSync(root, { withFileTypes: true });
+	} catch {
+		return [];
+	}
+	const registrations: SkillVariant[] = [];
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		const regPath = join(root, entry.name, "variant.json");
+		if (!existsSync(regPath)) continue;
+		try {
+			const raw = JSON.parse(readFileSync(regPath, "utf-8")) as {
+				agent?: unknown;
+				baseRevision?: unknown;
+				deployedTo?: unknown;
+			};
+			if (
+				typeof raw.agent === "string" &&
+				typeof raw.baseRevision === "string" &&
+				typeof raw.deployedTo === "string"
+			) {
+				registrations.push({
+					agent: raw.agent,
+					baseRevision: raw.baseRevision,
+					deployedTo: raw.deployedTo,
+				});
+			}
+		} catch {
+			// malformed registration - skip, never guess
+		}
+	}
+	return registrations;
 }
