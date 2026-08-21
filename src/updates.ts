@@ -93,7 +93,7 @@ export function computeDiff(previous: SkillSnapshot, next: SkillSnapshot): FileC
 	return paths.map((path) => {
 		const oldFile = before.get(path);
 		const newFile = after.get(path);
-		const kind = !oldFile ? "added" : !newFile ? "removed" : oldFile.sha !== newFile.sha || oldFile.executable !== newFile.executable ? "modified" : "unchanged";
+		const kind = oldFile ? newFile ? oldFile.sha !== newFile.sha || oldFile.executable !== newFile.executable ? "modified" : "unchanged" : "removed" : "added";
 		const changedBehavior = kind === "added" || kind === "modified";
 		return {
 			path,
