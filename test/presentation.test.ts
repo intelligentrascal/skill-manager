@@ -245,3 +245,63 @@ test("assignment preview surfaces the verified skill name before confirm", () =>
 test("origin history tolerates assignments recorded without a reason", () => {
 	assert.match(html, /\(entry\.reason \|\| [^)]+\)/);
 });
+
+test("freshness check and in-pane update path are offered only for verified github origins", () => {
+	// The pane pulls upstream on demand and reports honestly; the action is
+	// gated on a verified public GitHub origin (no origin -> no action, no
+	// fetch).
+	assert.ok(html.includes("Check freshness"), "missing freshness action label");
+	assert.ok(
+		html.includes("/api/freshness?name="),
+		"freshness action must call the freshness endpoint",
+	);
+	assert.ok(
+		html.includes('origin.state === "github" && origin.identity'),
+		"freshness action must be gated on a verified github origin",
+	);
+	// The update path reuses the #6 review and #7 apply services; apply is
+	// only reachable from the explicit confirm handler.
+	assert.ok(html.includes("Preview update"), "update path offers a preview");
+	assert.ok(
+		html.includes("/api/adaptation-review/apply"),
+		"apply must post to the verified-apply endpoint",
+	);
+	assert.ok(
+		html.includes("Apply after review"),
+		"apply is an explicit post-review action",
+	);
+	assert.ok(html.includes("Re-pin to "), "update-available offers an explicit re-pin");
+	assert.ok(
+		html.includes("/api/origin/re-pin"),
+		"re-pin must post to the re-pin endpoint",
+	);
+	// The four honest report states are rendered by name.
+	for (const state of ["Up to date", "Update available", "Drifted", "Unreachable"]) {
+		assert.ok(html.includes(state), `missing freshness report state: ${state}`);
+	}
+});
+
+test("sync labels name the source repo explicitly and never the bare wording", () => {
+	// The action label and the preview panel title both name the source repo.
+	assert.ok(
+		html.includes("Preview sync from agent-skills repo copy"),
+		"sync action must name the source repo",
+	);
+	assert.doesNotMatch(
+		html,
+		/Preview sync from repo(?! copy)/,
+		"a bare 'Preview sync from repo' label must not remain",
+	);
+	assert.doesNotMatch(
+		html,
+		/["']Sync from repo["']/,
+		"the preview panel title must not be a bare 'Sync from repo'",
+	);
+	// The sync action stays gated on drift with a repo copy (hidden when it is
+	// not meaningful).
+	assert.match(
+		html,
+		/statusOf\(name\) === "drift" && repoCopy/,
+		"sync action must stay gated on drift + repo copy",
+	);
+});
